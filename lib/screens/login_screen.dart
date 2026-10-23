@@ -1,8 +1,9 @@
-// lib/screens/login_screen.dart 생성
 import 'package:flutter/material.dart';
+
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
-import 'register_screen.dart'; // 회원가입 화면 이동용
+import 'register_screen.dart';
+import 'main_feed_screen.dart'; // ◀ [필수] 메인 피드 화면을 정상 인식하도록 임포트 추가
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,11 +35,18 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = false);
 
     if (success) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('젊은할미반찬가게에 오신 것을 환영합니다! ❤️')),
       );
-      // TODO: 메인 화면(반찬 피드)으로 이동하는 로직이 들어갈 자리입니다.
+
+      // 로그인 성공 시 메인 피드 화면으로 깔끔하게 이동
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const MainFeedScreen()),
+      );
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('로그인에 실패했습니다. 정보를 다시 확인해주세요.')),
       );
@@ -85,7 +93,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                          MaterialPageRoute(
+                            builder: (context) => const RegisterScreen(),
+                          ),
                         );
                       },
                       child: const Text('아직 회원이 아니신가요? 회원가입하기'),

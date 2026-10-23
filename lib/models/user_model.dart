@@ -6,16 +6,12 @@ class RegisterRequest {
   RegisterRequest({
     required this.password,
     required this.name,
-    required this.phoneNumber
+    required this.phoneNumber,
   });
 
   // 서버로 보낼 JSON 구조 변환
   Map<String, dynamic> toJson() {
-    return {
-      'password': password,
-      'name': name,
-      'phoneNumber': phoneNumber
-    };
+    return {'password': password, 'name': name, 'phoneNumber': phoneNumber};
   }
 }
 // lib/models/user_model.dart 에 아래 내용 추가
@@ -29,7 +25,7 @@ class LoginRequest {
   Map<String, dynamic> toJson() {
     return {
       'phoneNumber': phoneNumber, // 스프링 로그인 DTO 필드명과 맞추세요
-      'password': password
+      'password': password,
     };
   }
 }
@@ -45,4 +41,3 @@ class LoginResponse {
     );
   }
 }
-
