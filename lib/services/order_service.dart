@@ -23,7 +23,7 @@ class OrderService {
         Uri.parse(baseUrl),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token', // JWT 토큰을 사용하는 경우 추가 (선택)
+      //    'Authorization': 'Bearer $token', // JWT 토큰을 사용하는 경우 추가 (선택)
         },
         body: jsonEncode(request.toJson()),
       );

@@ -19,45 +19,66 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
   int _quantity = 1; // 기본 수량 1개
   bool _isOrdering = false;
 
+   // lib/screens/banchan_detail_screen.dart 내부의 _handleOrder 함수만 교체
   void _handleOrder() async {
+    print('🛒 바로 주문하기 버튼 클릭됨!');
+
+    print('🚨 [플러터 원본 검증] 현재 반찬의 고유 ID: ${widget.banchan.id}'); 
+    print('🚨 [플러터 원본 검증] 현재 반찬의 이름: ${widget.banchan.name}'); 
+
     setState(() => _isOrdering = true);
 
-    final request = OrderRequest(
-      productName: widget.banchan.id,
-      totalPrice: _quantity,
-    );
+    // 💡 .toInt()를 명시하여 확실하게 int 타입으로 고정시킵니다.
+    final int calculatedTotalPrice = (widget.banchan.price * _quantity).toInt();
 
-    final success = await _orderService.createOrder(request);
+    try {
+      // 이제 모델의 int totalPrice와 완벽하게 타입이 일치하므로 에러가 나지 않습니다.
+      final request = OrderRequest(
+        productName: widget.banchan.name,
+        totalPrice: calculatedTotalPrice, // ◀ 타입 일치 완료
+        memberId: 1, 
+        deliveryAddress: "부산시 강서구 명지동 젊은할미반찬가게", 
+        depositorName: "하인식", 
+        
+      );
 
-    setState(() => _isOrdering = false);
+      print('📦 주문 요청 데이터(totalPrice 포함): ${request.toJson()}');
 
-    if (success) {
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('주문 완료 🎉'),
-          content: Text(
-            '👵 할미가 맛있게 준비해서 보내줄게!\n(${widget.banchan.name} $_quantity개)',
+      final success = await _orderService.createOrder(request);
+      print('🔔 주문 API 결과: $success');
+
+      setState(() => _isOrdering = false);
+
+      if (success) {
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('주문 완료 🎉'),
+            content: Text('👵 할미가 맛있게 준비해서 보내줄게!\n(총 결제금액: $calculatedTotalPrice원)'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); 
+                  Navigator.pop(context); 
+                },
+                child: const Text('확인'),
+              )
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // 팝업 닫기
-                Navigator.pop(context); // 메인 피드로 돌아가기
-              },
-              child: const Text('확인'),
-            ),
-          ],
-        ),
-      );
-    } else {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('주문에 실패했습니다. 서버 로그를 확인해주세요.')),
-      );
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('서버 응답 오류로 주문에 실패했습니다. 😢')),
+        );
+      }
+    } catch (e) {
+      print('❌ 주문 처리 중 에러 발생: $e');
+      setState(() => _isOrdering = false);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

@@ -4,7 +4,7 @@ class OrderRequest {
   final int totalPrice;
   final String deliveryAddress;
   final String depositorName;
-
+    
   OrderRequest({
     required this.memberId,
     required this.productName,
@@ -15,9 +15,11 @@ class OrderRequest {
 
   Map<String, dynamic> toJson() {
     return {
-      'productName': productName, // 스프링 DTO 필드명과 일치시켜야 합니다.
-      'id': memberId,
+      'memberId' : memberId, // 스프링 DTO 필드명과 일치시켜야 합니다.
+      'productName' : productName,
       'totalPrice': totalPrice,
+     'deliveryAddress' : deliveryAddress,
+      'depositorName' : depositorName,
     };
   }
 }
