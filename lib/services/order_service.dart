@@ -7,10 +7,6 @@ import 'package:http/http.dart' as http;
 import '../models/order_model.dart';
 // 웹 로컬스토리지 토큰 확인용
 
-import 'package:http/http.dart' as http;
-
-import '../models/order_model.dart';
-
 class OrderService {
   final String baseUrl = 'http://localhost:8080/api/orders'; // ◀ 스프링 주문 API 주소
 
@@ -18,6 +14,8 @@ class OrderService {
     try {
       // 로그인 시 저장했던 인증 정보 꺼내기
       final token = html.window.localStorage['jwt_token'] ?? '';
+
+
 
       final response = await http.post(
         Uri.parse(baseUrl),
@@ -42,3 +40,8 @@ class OrderService {
     }
   }
 }
+
+
+
+
+

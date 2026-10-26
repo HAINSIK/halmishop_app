@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import 'register_screen.dart';
-import 'main_feed_screen.dart'; // ◀ [필수] 메인 피드 화면을 정상 인식하도록 임포트 추가
+//import 'main_feed_screen.dart'; // ◀ [필수] 메인 피드 화면을 정상 인식하도록 임포트 추가
+import 'main_feed_screen copy.dart'; // ◀ [필수] 메인 피드 화면을 정상 인식하도록 임포트 추가
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

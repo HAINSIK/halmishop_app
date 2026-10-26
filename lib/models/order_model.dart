@@ -4,6 +4,7 @@ class OrderRequest {
   final int totalPrice;
   final String deliveryAddress;
   final String depositorName;
+  
     
   OrderRequest({
     required this.memberId,
@@ -11,7 +12,20 @@ class OrderRequest {
     required this.totalPrice,
     required this.deliveryAddress,
     required this.depositorName,
+    
   });
+
+    factory OrderRequest.fromJson(Map<String, dynamic> json) {
+    return OrderRequest(
+        // 서버에서 member 객체 통째로 내려올 경우 json['member']['id']로 파싱 필요할 수 있음
+      memberId: json['memberId'] ?? (json['member'] != null ? json['member']['id'] : 0),
+      productName: json['productName'] ?? '',
+      totalPrice: json['totalPrice'] ?? 0,
+      deliveryAddress: json['delivery_address'] ?? '',
+      depositorName: json['depositorName'] ?? '',
+     
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -20,6 +34,7 @@ class OrderRequest {
       'totalPrice': totalPrice,
      'deliveryAddress' : deliveryAddress,
       'depositorName' : depositorName,
+      
     };
   }
 }
