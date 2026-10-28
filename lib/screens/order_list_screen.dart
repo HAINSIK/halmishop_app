@@ -23,7 +23,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
 
   Future<List<dynamic>> _fetchOrders() async {
     try {
-      final savedMemberId = web.window.localStorage.getItem('member_id') ?? '1';
+      final savedMemberId = web.window.localStorage.getItem('memberId') ?? '1';
       print('🔍 실제 내 회원 ID 번호로 장부 조회 요청 중: $savedMemberId번');
 
       final response = await http.get(

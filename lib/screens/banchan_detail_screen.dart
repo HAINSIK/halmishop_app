@@ -1,14 +1,10 @@
+// lib/screens/banchan_detail_screen.dart 전체 교체
 import 'package:flutter/material.dart';
-import 'package:halmishop_app/models/banchan_model.dart';
-import 'package:halmishop_app/screens/cart_screen.dart';
 import 'package:provider/provider.dart';
-import 'package:web/web.dart' as web;
 
-import '../models/order_model.dart';
-import '../services/order_service.dart';
-import 'order_list_screen.dart';
-
-import 'package:halmishop_app/cart_provider.dart';
+import '../models/banchan_model.dart';
+import '../cart_provider.dart';
+import 'order_list_screen.dart'; // 👈 주문 완료 후 주문내역 이동을 위해 추가
 
 class BanchanDetailScreen extends StatefulWidget {
   final Banchan banchan;
@@ -16,300 +12,239 @@ class BanchanDetailScreen extends StatefulWidget {
   const BanchanDetailScreen({super.key, required this.banchan});
 
   @override
-  State createState() => _BanchanDetailScreenState();
+  State<BanchanDetailScreen> createState() => _BanchanDetailScreenState();
 }
 
 class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
-  final OrderService _orderService = OrderService();
-  final _formKey = GlobalKey<FormState>(); // 💡 FormState 제네릭 명시 완료
-
-  final _addressController = TextEditingController();
-  final _depositorController = TextEditingController();
-
-  int _quantity = 1;
-  bool _isOrdering = false;
-
-  @override
-  void dispose() {
-    _addressController.dispose();
-    _depositorController.dispose();
-    super.dispose();
-  }
-
-  void _handleOrder() async {
-    if (!_formKey.currentState!.validate()) return; // 💡 괄호 오타 수정 완료
-
-    setState(() => _isOrdering = true);
-
-    // 💡 widget.banchan 구조로 명확하게 연산하도록 고정했습니다.
-    final int calculatedTotalPrice = (widget.banchan.price * _quantity).toInt();
-
-    try {
-      final savedMemberIdStr =
-          web.window.localStorage.getItem('member_id') ?? '1';
-      final int realMemberId = int.tryParse(savedMemberIdStr) ?? 1;
-
-      final request = OrderRequest(
-        memberId: realMemberId,
-        productName: widget.banchan.name, // 💡 widget. 추가 완료
-        totalPrice: calculatedTotalPrice,
-        deliveryAddress: _addressController.text.trim(),
-        depositorName: _depositorController.text.trim(),
-      );
-
-      print('📦 주문 요청 데이터(실시간 회원 ID 반영): ${request.toJson()}');
-
-      final success = await _orderService.createOrder(request);
-      print('🔔 주문 API 결과: $success');
-
-      setState(() => _isOrdering = false);
-
-      if (success) {
-        if (!mounted) return;
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('주문 완료 🎉'),
-            content: Text(
-              '👵 할미가 맛있게 준비해서 보내줄게!\n(총 결제금액: $calculatedTotalPrice원)',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const OrderListScreen(),
-                    ),
-                  );
-                },
-                child: const Text('주문 장부 확인하기'),
-              ),
-            ],
-          ),
-        );
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('서버 응답 오류로 주문에 실패했습니다. 😢')),
-        );
-      }
-    } catch (e) {
-      print('❌ 주문 처리 중 에러 발생: $e');
-      setState(() => _isOrdering = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final totalPrice = widget.banchan.price * _quantity; // 💡 widget. 추가 완료
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.banchan.name), // 💡 widget. 추가 완료
+        title: Text(widget.banchan.name, style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.orangeAccent,
+        centerTitle: true,
       ),
-      body: _isOrdering
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Image.network(
-                      widget
-                          .banchan
-                          .imageUrl, // 💡 소문자 imageurl 규격 및 widget. 고정
-                      width: double.infinity,
-                      height: 300,
-                      fit: BoxFit.cover,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '[${widget.banchan.category}]', // 💡 widget. 추가 완료
-                      style: const TextStyle(
-                        color: Colors.orange,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '[${widget.banchan.name}]', // 💡 widget. 추가 완료
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${widget.banchan.price}원', // 💡 widget. 추가 완료
-                      style: const TextStyle(
-                        fontSize: 22,
-                        color: Colors.deepOrange,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Divider(height: 40),
-                    const Text(
-                      '수량 선택',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.remove_circle_outline,
-                            size: 28,
-                          ),
-                          onPressed: _quantity > 1
-                              ? () => setState(() => _quantity--)
-                              : null,
-                        ),
-                        Text(
-                          '$_quantity',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline, size: 28),
-                          onPressed: () => setState(() => _quantity++),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 40),
-
-                    const Text(
-                      '🚚 반찬 받으실 배송지 주소',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _addressController,
-                      decoration: const InputDecoration(
-                        hintText: '예시) 부산시 강서구 명지동 할미아파트 101동',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(
-                          Icons.location_on,
-                          color: Colors.orange,
-                        ),
-                      ),
-                      validator: (v) =>
-                          v!.trim().isEmpty ? '배송지 주소를 꼭 적어주세요!' : null,
-                    ),
-                    const SizedBox(height: 24),
-
-                    const Text(
-                      '💰 무통장 입금자명',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _depositorController,
-                      decoration: const InputDecoration(
-                        hintText: '실제 송금하시는 분의 성함을 적어주세요.',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.person, color: Colors.orange),
-                      ),
-                      validator: (v) =>
-                          v!.trim().isEmpty ? '입금자명을 꼭 적어주세요!' : null,
-                    ),
-
-                    const Divider(height: 40),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          '총 결제 금액',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '$totalPrice원',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ), // 💡 변수 가공 출력부 에러 완전 수정
-                      ],
-                    ),
-                    const SizedBox(height: 30),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orangeAccent,
-                        minimumSize: const Size(double.infinity, 50),
-                      ),
-                      onPressed: () {
-                        // 👵 할미샵 장바구니 창고에 이 반찬을 쏙 집어넣기!
-                        context.read<CartProvider>().addBanchan(widget.banchan);
-
-                        // 담겼다고 알림 스낵바 띄워주기
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              '👵 ${widget.banchan.name}이(가) 장바구니에 담겼구만유!',
-                            ),
-                            duration: const Duration(seconds: 2),
-                            backgroundColor: Colors.orange,
-                            action: SnackBarAction(
-                              label: '보러가기',
-                              textColor: Colors.white,
-                              onPressed: () {
-                                // 필요하다면 여기서 장바구니 탭으로 바로 이동하게 할 수도 있어유
-                              },
-                            ),
-                          ),
-                        );
-                      },
-                      child: const Text(
-                        '장바구니 담기',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: _handleOrder,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        minimumSize: const Size(double.infinity, 55),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        '바로 주문하기',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 반찬 대형 이미지
+            Image.network(
+              widget.banchan.imageUrl,
+              width: double.infinity,
+              height: 300,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                width: double.infinity,
+                height: 300,
+                color: Colors.grey.shade200,
+                child: const Center(
+                  child: Icon(Icons.fastfood, color: Colors.orange, size: 80),
                 ),
               ),
             ),
+            
+            // 반찬 텍스트 정보들
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade100,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      widget.banchan.category,
+                      style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.banchan.name,
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${widget.banchan.price}원',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.orange.shade800),
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(thickness: 1),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '👵 할미의 정성이 듬뿍 들어간 손맛 반찬이구만유!\n매일 새벽 시장에서 엄선해 온 싱싱한 재료로 정성껏 버무렸으니 믿고 맛나게 잡숴보셔유. 조미료는 일절 쓰지 않아 건강에도 아주 좋당깨!',
+                    style: TextStyle(fontSize: 15, height: 1.6, color: Colors.black87),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+
+      // 💡 하단 고정 버튼 영역
+      bottomNavigationBar: Container(
+        color: Colors.white,
+        padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 12.0, bottom: 24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // (1) 장바구니 담기 버튼
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 52),
+                side: const BorderSide(color: Colors.orangeAccent, width: 2),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                backgroundColor: Colors.orange.shade50.withOpacity(0.5),
+              ),
+              onPressed: () {
+                context.read<CartProvider>().addBanchan(widget.banchan);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('👵 ${widget.banchan.name}이(가) 장바구니에 담겼구만유!'),
+                    backgroundColor: Colors.orange,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: const Text('🛒 장바구니 담기', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orangeAccent)),
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // (2) 바로 주문하기 버튼 (진하고 쨍한 입체 주황 스타일)
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade800,
+                minimumSize: const Size(double.infinity, 52),
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              onPressed: () {
+                // 💡 1. 주소 및 입금자를 입력받을 전용 컨트롤러 선언
+                final TextEditingController addressController = TextEditingController();
+                final TextEditingController depositorController = TextEditingController();
+
+                // 💡 2. 정보 입력용 다이얼로그 팝업 열기
+                showDialog(
+                  context: context,
+                  barrierDismissible: true,
+                  builder: (dialogContext) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    title: const Text('👵 바로 주문 정보 입력', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('"${widget.banchan.name}"을(를)\n어디로 보내드릴까유?'),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: depositorController,
+                          decoration: const InputDecoration(
+                            labelText: '입금자명',
+                            hintText: '예: 홍길동',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.person, color: Colors.orangeAccent),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: addressController,
+                          decoration: const InputDecoration(
+                            labelText: '받으실 배송지 주소',
+                            hintText: '상세주소까지 적어주셔유',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.home, color: Colors.orangeAccent),
+                          ),
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        child: const Text('취소', style: TextStyle(color: Colors.grey)),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                        onPressed: () async {
+                          if (depositorController.text.trim().isEmpty || addressController.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('⚠️ 입금자명과 배송지를 모두 적어주셔야 합니더!')),
+                            );
+                            return;
+                          }
+
+                          // 임시로 장바구니에 이 상품만 단독으로 들어있는 상태처럼 전송하기 위해 
+                          // 먼저 장바구니에 해당 상품을 세팅하고 함수를 호출하는 방식으로 조립합니다.
+                          final cartProvider = context.read<CartProvider>();
+                          cartProvider.addBanchan(widget.banchan);
+
+                          // 💥 [버그 해결] 주소와 입금자를 정확하게 아규먼트로 전달하여 호출합니다!
+                          bool isSuccess = await cartProvider.placeOrderFromCartWithDetails(
+                            address: addressController.text.trim(),
+                            depositor: depositorController.text.trim(),
+                          );
+
+                          if (isSuccess) {
+                            Navigator.pop(dialogContext); // 입력 팝업 닫기
+                            Navigator.pop(context);       // 상세 페이지 닫기 (메인으로 이동)
+                            
+                            // 최종 주문 완료 팝업 선물하기
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (context) => AlertDialog(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                title: const Text('🎉 바로 주문 접수 완료!', style: TextStyle(fontWeight: FontWeight.bold)),
+                                content: Text('${widget.banchan.name} 주문이 정상 접수되었구만유!\n맛나게 버무려 보낼 테니 주문 내역을 확인해 보셔유.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.pop(context); // 팝업 닫기
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (context) => const OrderListScreen()),
+                                      );
+                                    },
+                                    child: const Text('확인 완료', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('❌ 서버 저장 실패! 스프링 로그를 확인해 주셔유.'),
+                              ),
+                            );
+                          }
+                        },
+                        child: const Text(
+                          '👵 주문하기',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              child: const Text(
+                '👵 바로 주문하기',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

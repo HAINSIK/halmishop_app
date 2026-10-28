@@ -11,7 +11,7 @@ class AuthService {
   Future<bool> register(RegisterRequest request) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/register'),
+        Uri.parse('$baseUrl/join'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(request.toJson()),
       );

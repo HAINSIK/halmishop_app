@@ -61,6 +61,7 @@ class CartProvider with ChangeNotifier {
 
     // 💡 스프링 자바 OrderRequestDto 및 OrderItemDto에 적힌 대소문자 변수명과 100% 똑같이 맵핑했습니다!
     final Map<String, dynamic> orderData = {
+      
       'memberId': 1, // OrderRequestDto의 memberId
       'totalPrice': totalPrice, // OrderRequestDto의 totalPrice
       'deliveryAddress': address, // OrderRequestDto의 deliveryAddress
