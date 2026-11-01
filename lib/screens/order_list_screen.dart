@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:url_launcher/url_launcher.dart';
 import '../services/api_config.dart';
 
 class OrderListScreen extends StatefulWidget {
@@ -157,6 +157,65 @@ class OrderListScreenState extends State<OrderListScreen> {
     } catch (e) {
       if (mounted) {
         _showErrorDialog('송장 저장 중 오류가 발생했습니다.\n$e');
+      }
+    }
+  }
+
+  Future<void> _openTracking(String courier, String trackingNumber) async {
+    final number = trackingNumber.trim();
+
+    if (number.isEmpty) return;
+
+    String? trackingUrl;
+
+    switch (courier) {
+      case 'CJ대한통운':
+        trackingUrl =
+            'https://trace.cjlogistics.com/next/tracking.html?wblNo=$number';
+        break;
+
+      case '한진택배':
+        trackingUrl =
+            'https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do'
+            '?mCode=MN038&schLang=KR&wblnumText2=$number';
+        break;
+
+      case '롯데택배':
+        trackingUrl =
+            'https://www.lotteglogis.com/home/reservation/tracking/linkView'
+            '?InvNo=$number';
+        break;
+
+      case '우체국택배':
+        trackingUrl =
+            'https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm'
+            '?displayHeader=N&sid1=$number';
+        break;
+
+      case '로젠택배':
+        trackingUrl = 'https://www.ilogen.com/m/personal/trace.pop/$number';
+        break;
+    }
+
+    if (trackingUrl == null) {
+      _showErrorDialog('등록되지 않은 택배사입니다.');
+      return;
+    }
+
+    final uri = Uri.parse(trackingUrl);
+
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched && mounted) {
+        _showErrorDialog('배송조회 페이지를 열지 못했습니다.');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorDialog('배송조회 중 오류가 발생했습니다.\n$e');
       }
     }
   }
@@ -667,7 +726,7 @@ class OrderListScreenState extends State<OrderListScreen> {
                       if (order['trackingNumber'] != null &&
                           order['trackingNumber'].toString().isNotEmpty) ...[
                         const SizedBox(height: 10),
-                        Container(
+                     Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -684,10 +743,38 @@ class OrderListScreenState extends State<OrderListScreen> {
                                   fontSize: 14,
                                 ),
                               ),
-                              const SizedBox(height: 5),
-                              Text(
-                                '송장번호: ${order['trackingNumber']}',
-                                style: const TextStyle(fontSize: 14),
+                              const SizedBox(height: 8),
+
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: SelectableText(
+                                      '송장번호: ${order['trackingNumber']}',
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _openTracking(
+                                    order['courier']?.toString() ?? '',
+                                    order['trackingNumber']?.toString() ?? '',
+                                  ),
+                                  icon: const Icon(Icons.local_shipping),
+                                  label: const Text('배송조회 바로가기'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue.shade600,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
