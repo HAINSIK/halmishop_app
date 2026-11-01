@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../notification_service.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import 'register_screen.dart';
@@ -36,6 +36,9 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = false);
 
     if (success) {
+      // 로그인 성공 후 FCM 토큰을 서버에 등록
+      NotificationService.registerToken();
+      
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('젊은할미반찬가게에 오신 것을 환영합니다! ❤️')),

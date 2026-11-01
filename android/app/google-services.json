@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "537254030165",
+    "project_id": "halmishop",
+    "storage_bucket": "halmishop.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:537254030165:android:d550c3109d38e094c39ddc",
+        "android_client_info": {
+          "package_name": "com.example.halmishop_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA7ydQ31GGvEv8CU1D0yqx8EditlXt3s44"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
