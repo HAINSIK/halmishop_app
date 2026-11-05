@@ -1,9 +1,14 @@
 import 'dart:convert';
 
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:excel/excel.dart';
+import 'package:file_saver/file_saver.dart';
+
+import 'dart:typed_data';
+
 import '../services/api_config.dart';
 
 class OrderListScreen extends StatefulWidget {
@@ -102,8 +107,6 @@ class OrderListScreenState extends State<OrderListScreen> {
         },
         body: jsonEncode({"order_status": newStatus}),
       );
-
-      
 
       if (response.statusCode == 200) {
         // 성공 시 FutureBuilder 화면 새로고침
@@ -445,6 +448,20 @@ class OrderListScreenState extends State<OrderListScreen> {
         backgroundColor: Colors.orangeAccent,
         actions: [
           if (_isAdmin)
+            IconButton(
+              tooltip: '오늘의 반찬 집계',
+              icon: const Icon(Icons.summarize),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const DailyProductSummaryScreen(),
+                  ),
+                );
+              },
+            ),
+
+          if (_isAdmin)
             PopupMenuButton<String>(
               tooltip: '주문 상태 필터',
               icon: const Icon(Icons.filter_list),
@@ -613,13 +630,68 @@ class OrderListScreenState extends State<OrderListScreen> {
                         ],
                       ),
                       const Divider(height: 24),
-                      Text(
-                        '반찬명: ${order['productName']}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+
+                      if (order['items'] is List &&
+                          (order['items'] as List).isNotEmpty) ...[
+                        Text(
+                          _isAdmin ? '주문 상품별 수량' : '내 주문 상품',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
+                        // const Text(
+                        //   '주문 상품별 수량',
+                        //   style: TextStyle(
+                        //     fontSize: 18,
+                        //     fontWeight: FontWeight.bold,
+                        //   ),
+                        // ),
+                        const SizedBox(height: 8),
+
+                        ...(order['items'] as List).map((item) {
+                          final productName = item['productName'] ?? '상품명 없음';
+                          final quantity = item['quantity'] ?? 0;
+                          final price = item['price'] ?? 0;
+
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '$productName (단가 ${price}원)',
+                                    style: const TextStyle(fontSize: 15),
+                                  ),
+                                ),
+                                Text(
+                                  '${quantity}개',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color.fromARGB(230, 34, 32, 199),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ] else
+                        Text(
+                          '반찬명: ${order['productName']}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                      // Text(
+                      //   '반찬명: ${order['productName']}',
+                      //   style: const TextStyle(
+                      //     fontSize: 18,
+                      //     fontWeight: FontWeight.bold,
+                      //   ),
+                      // ),
                       const SizedBox(height: 10),
                       Text(
                         '총 금액: ${order['totalPrice']}원',
@@ -726,7 +798,7 @@ class OrderListScreenState extends State<OrderListScreen> {
                       if (order['trackingNumber'] != null &&
                           order['trackingNumber'].toString().isNotEmpty) ...[
                         const SizedBox(height: 10),
-                     Container(
+                        Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -884,6 +956,426 @@ class OrderListScreenState extends State<OrderListScreen> {
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class DailyProductSummaryScreen extends StatefulWidget {
+  const DailyProductSummaryScreen({super.key});
+
+  @override
+  State<DailyProductSummaryScreen> createState() =>
+      _DailyProductSummaryScreenState();
+}
+
+class _DailyProductSummaryScreenState extends State<DailyProductSummaryScreen> {
+  DateTime _selectedDate = DateTime.now();
+  List<dynamic> _items = [];
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  String get _dateString {
+    final year = _selectedDate.year.toString().padLeft(4, '0');
+    final month = _selectedDate.month.toString().padLeft(2, '0');
+    final day = _selectedDate.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSummary();
+  }
+
+  Future<void> _loadSummary() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('jwt_token') ?? '';
+
+      final uri = Uri.parse('${ApiConfig.baseUrl}/api/orders/summary')
+          .replace(queryParameters: {'date': _dateString});
+
+      final response = await http
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+        if (!mounted) return;
+
+        setState(() {
+          _items = data;
+          _isLoading = false;
+        });
+      } else {
+        throw Exception(
+          '조회 실패 (${response.statusCode}): ${utf8.decode(response.bodyBytes)}',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<List<dynamic>> _fetchOrdersForExcel() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwt_token') ?? '';
+
+    if (token.isEmpty) {
+      throw Exception('로그인 정보가 없습니다.');
+    }
+
+    final response = await http
+        .get(
+          Uri.parse('${ApiConfig.baseUrl}/api/orders'),
+          headers: {'Authorization': 'Bearer $token'},
+        )
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      return List<dynamic>.from(data);
+    }
+
+    throw Exception('주문 목록 조회 실패 (${response.statusCode})');
+  }
+
+  List<dynamic> _filterOrdersForExcel(List<dynamic> orders) {
+    return orders.where((order) {
+      final orderDate = DateTime.tryParse(order['orderDate']?.toString() ?? '');
+
+      if (orderDate == null) return false;
+
+      final sameDate =
+          orderDate.year == _selectedDate.year &&
+          orderDate.month == _selectedDate.month &&
+          orderDate.day == _selectedDate.day;
+
+      final status = order['orderStatus']?.toString() ?? '';
+
+      final notCancelled = status != '주문취소';
+
+      return sameDate && notCancelled;
+    }).toList();
+  }
+
+  Future<void> _exportExcel() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      // 선택한 날짜의 고객별 주문 가져오기
+      final allOrders = await _fetchOrdersForExcel();
+      final orders = _filterOrdersForExcel(allOrders);
+
+      if (orders.isEmpty) {
+        throw Exception('선택한 날짜에 출력할 주문이 없습니다.');
+      }
+
+      // 엑셀 파일 생성
+      final excel = Excel.createExcel();
+
+      // 첫 번째 시트: 주방 집계
+      final kitchenSheet = excel['Sheet1'];
+
+      kitchenSheet.setColumnWidth(0, 25);
+      kitchenSheet.setColumnWidth(1, 18);
+
+      // 주방 집계표 머리글 스타일
+      // kitchenSheet.row(0).forEach((cell) {
+      //   cell.cellStyle = CellStyle(
+      //     bold: true,
+      //     fontSize: 14,
+      //     backgroundColorHex: ExcelColor.fromHexString('#F4B183'),
+      //     horizontalAlign: HorizontalAlign.Center,
+      //   );
+      // });
+
+      kitchenSheet.appendRow([
+        TextCellValue('반찬 이름'),
+        TextCellValue('총 준비 수량'),
+      ]);
+
+      final Map<String, int> totals = {};
+
+      for (final order in orders) {
+        final items = order['items'] as List<dynamic>? ?? [];
+
+        for (final item in items) {
+          final name = item['productName'].toString();
+          final quantity = (item['quantity'] as num).toInt();
+
+          totals[name] = (totals[name] ?? 0) + quantity;
+        }
+      }
+
+      // 반찬별 이름과 총 준비 수량 기록
+      for (final entry in totals.entries) {
+        kitchenSheet.appendRow([
+          TextCellValue(entry.key),
+          IntCellValue(entry.value),
+        ]);
+      }
+
+      // 전체 반찬 준비 수량 합계
+      final grandTotal = totals.values.fold<int>(
+        0,
+        (sum, quantity) => sum + quantity,
+      );
+
+      kitchenSheet.appendRow([
+        TextCellValue('전체 합계'),
+        IntCellValue(grandTotal),
+      ]);
+
+      final headerStyle = CellStyle(
+        bold: true,
+        fontSize: 14,
+        backgroundColorHex: ExcelColor.fromHexString('#F4B183'),
+        horizontalAlign: HorizontalAlign.Center,
+      );
+
+      kitchenSheet.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
+
+      kitchenSheet.cell(CellIndex.indexByString('B1')).cellStyle = headerStyle;
+
+      // 두 번째 시트: 고객별 포장표
+      final packingSheet = excel['고객별 포장표'];
+
+      // 고객별 포장표 열 너비
+      packingSheet.setColumnWidth(0, 12);
+      packingSheet.setColumnWidth(1, 18);
+      packingSheet.setColumnWidth(2, 22);
+      packingSheet.setColumnWidth(3, 12);
+
+      // // 고객별 포장표 머리글 스타일
+      // packingSheet.row(0).forEach((cell) {
+      //   cell.cellStyle = CellStyle(
+      //     bold: true,
+      //     fontSize: 13,
+      //     backgroundColorHex: ExcelColor.fromHexString('#F4B183'),
+      //     horizontalAlign: HorizontalAlign.Center,
+      //   );
+      // });
+
+      packingSheet.appendRow([
+        TextCellValue('주문번호'),
+        TextCellValue('고객 이름'),
+        TextCellValue('반찬 이름'),
+        TextCellValue('주문 수량'),
+      ]);
+
+      packingSheet.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
+      packingSheet.cell(CellIndex.indexByString('B1')).cellStyle = headerStyle;
+      packingSheet.cell(CellIndex.indexByString('C1')).cellStyle = headerStyle;
+      packingSheet.cell(CellIndex.indexByString('D1')).cellStyle = headerStyle;
+
+      // 고객별 포장 데이터 모으기
+      final List<Map<String, dynamic>> packingRows = [];
+
+      for (final order in orders) {
+        final orderId = order['id'];
+        final memberName = order['memberName']?.toString() ?? '';
+        final items = order['items'] as List<dynamic>? ?? [];
+
+        for (final item in items) {
+          packingRows.add({
+            'orderId': orderId,
+            'memberName': memberName,
+            'productName': item['productName'].toString(),
+            'quantity': (item['quantity'] as num).toInt(),
+          });
+        }
+      }
+
+      // 고객 이름순 → 주문번호순 정렬
+      packingRows.sort((a, b) {
+        final nameCompare = a['memberName'].toString().compareTo(
+          b['memberName'].toString(),
+        );
+
+        if (nameCompare != 0) return nameCompare;
+
+        return (a['orderId'] as num).compareTo(b['orderId'] as num);
+      });
+
+      // 정렬된 데이터 엑셀에 기록
+      for (final row in packingRows) {
+        packingSheet.appendRow([
+          TextCellValue(row['orderId'].toString()),
+          TextCellValue(row['memberName']),
+          TextCellValue(row['productName']),
+          IntCellValue(row['quantity']),
+        ]);
+      }
+
+      // 엑셀 파일 저장
+      final bytes = excel.encode();
+
+      if (bytes == null) {
+        throw Exception('엑셀 파일 생성에 실패했습니다.');
+      }
+
+      await FileSaver.instance.saveFile(
+        name: '할미샵_주문정리_$_dateString',
+        bytes: Uint8List.fromList(bytes),
+        fileExtension: 'xlsx',
+        mimeType: MimeType.microsoftExcel,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('엑셀 파일 저장이 완료되었습니다.')));
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('엑셀 저장 실패: $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _selectDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+
+    if (picked == null) return;
+
+    setState(() {
+      _selectedDate = picked;
+    });
+
+    await _loadSummary();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalQuantity = _items.fold<int>(
+      0,
+      (sum, item) => sum + (item['totalQuantity'] as num).toInt(),
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('오늘의 반찬 집계'),
+        backgroundColor: Colors.orangeAccent,
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _selectDate,
+                  icon: const Icon(Icons.calendar_month),
+                  label: Text('집계 날짜: $_dateString'),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _exportExcel,
+                  icon: const Icon(Icons.file_download),
+                  label: const Text('엑셀 저장하기'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_isLoading)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (_errorMessage != null)
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(_errorMessage!),
+                ),
+              ),
+            )
+          else if (_items.isEmpty)
+            const Expanded(
+              child: Center(
+                child: Text(
+                  '해당 날짜의 주문 내역이 없습니다.',
+                  style: TextStyle(fontSize: 17),
+                ),
+              ),
+            )
+          else ...[
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _items.length,
+                itemBuilder: (context, index) {
+                  final item = _items[index];
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: ListTile(
+                      title: Text(
+                        item['productName'].toString(),
+                        style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      trailing: Text(
+                        '${item['totalQuantity']}개',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blueAccent,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              color: Colors.orange.shade50,
+              child: Text(
+                '전체 ${_items.length}종류 · 총 $totalQuantity개',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

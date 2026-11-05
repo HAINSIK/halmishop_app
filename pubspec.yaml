@@ -41,8 +41,11 @@ dependencies:
   web: ^1.1.2
   shared_preferences: ^2.5.3
   url_launcher: ^6.3.3
+  excel: ^4.0.6
   firebase_core: ^5.1.0
   firebase_messaging: ^17.0.1
+  path_provider: ^2.1.6
+  file_saver: ^0.7.0
 
 
 

@@ -1,6 +1,7 @@
 // lib/screens/cart_screen.dart 전체 교체
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../cart_provider.dart';
 import 'order_list_screen.dart';
 
@@ -30,7 +31,7 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    '장바구니가 텅 비었구만유.\n맛있는 반찬을 담아보셔유 👵',
+                    '장바구니가 비어있습니다.\n맛있는 반찬을 담아보세요 👵',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey,
@@ -189,18 +190,25 @@ class _CartScreenState extends State<CartScreen> {
                           ),
                           onPressed: () {
                             // 💡 1. 팝업창 안의 입력 컨트롤러 선언
-                            final TextEditingController addressController = TextEditingController();
-                            final TextEditingController depositorController = TextEditingController();
+                            final TextEditingController addressController =
+                                TextEditingController();
+                            final TextEditingController depositorController =
+                                TextEditingController();
 
                             // 💡 2. 정보 입력용 다이얼로그 열기
                             showDialog(
                               context: context,
                               barrierDismissible: true,
                               builder: (context) => AlertDialog(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
                                 title: const Text(
                                   '👵 배송 정보를 적어주셔유',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                  ),
                                 ),
                                 content: Column(
                                   mainAxisSize: MainAxisSize.min,
@@ -213,7 +221,10 @@ class _CartScreenState extends State<CartScreen> {
                                         labelText: '입금자명',
                                         hintText: '예: 홍길동',
                                         border: OutlineInputBorder(),
-                                        prefixIcon: Icon(Icons.person, color: Colors.orangeAccent),
+                                        prefixIcon: Icon(
+                                          Icons.person,
+                                          color: Colors.orangeAccent,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(height: 12),
