@@ -1,1 +1,25 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"halmishop","configurations":{"android":"1:537254030165:android:d550c3109d38e094c39ddc","ios":"1:537254030165:ios:948e5c72ab23910ac39ddc","macos":"1:537254030165:ios:948e5c72ab23910ac39ddc","web":"1:537254030165:web:bd0f36d0068d8993c39ddc","windows":"1:537254030165:web:d4f82ff3ff68ba04c39ddc"}}},"android":{"default":{"projectId":"halmishop","appId":"1:537254030165:android:d550c3109d38e094c39ddc","fileOutput":"android/app/google-services.json"}}}}}
+{
+    "flutter": {
+        "platforms": {
+            "dart": {
+                "lib/firebase_options.dart": {
+                    "projectId": "halmishop",
+                    "configurations": {
+                        "android": "1:537254030165:android:d550c3109d38e094c39ddc",
+                        "ios": "1:537254030165:ios:948e5c72ab23910ac39ddc",
+                        "macos": "1:537254030165:ios:948e5c72ab23910ac39ddc",
+                        "web": "1:537254030165:web:bd0f36d0068d8993c39ddc",
+                        "windows": "1:537254030165:web:d4f82ff3ff68ba04c39ddc"
+                    }
+                }
+            },
+            "android": {
+                "default": {
+                    "projectId": "halmishop",
+                    "appId": "1:537254030165:android:d550c3109d38e094c39ddc",
+                    "fileOutput": "android/app/google-services.json"
+                }
+            }
+        }
+    }
+}

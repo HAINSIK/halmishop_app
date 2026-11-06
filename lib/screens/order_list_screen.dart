@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide BorderStyle, Border;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:excel/excel.dart';
@@ -1142,13 +1142,37 @@ class _DailyProductSummaryScreenState extends State<DailyProductSummaryScreen> {
         IntCellValue(grandTotal),
       ]);
 
+      final totalRowIndex = kitchenSheet.maxRows - 1;
+
+      for (int col = 0; col < 2; col++) {
+        kitchenSheet
+            .cell(
+              CellIndex.indexByColumnRow(
+                columnIndex: col,
+                rowIndex: totalRowIndex,
+              ),
+            )
+            .cellStyle = CellStyle(
+          bold: true,
+          backgroundColorHex: ExcelColor.fromHexString('#FFF2CC'),
+          leftBorder: Border(borderStyle: BorderStyle.Thin),
+          rightBorder: Border(borderStyle: BorderStyle.Thin),
+          topBorder: Border(borderStyle: BorderStyle.Thin),
+          bottomBorder: Border(borderStyle: BorderStyle.Thin),
+        );
+      }
+
       final headerStyle = CellStyle(
         bold: true,
         fontSize: 14,
         backgroundColorHex: ExcelColor.fromHexString('#F4B183'),
         horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+        leftBorder: Border(borderStyle: BorderStyle.Thin),
+        rightBorder: Border(borderStyle: BorderStyle.Thin),
+        topBorder: Border(borderStyle: BorderStyle.Thin),
+        bottomBorder: Border(borderStyle: BorderStyle.Thin),
       );
-
       kitchenSheet.cell(CellIndex.indexByString('A1')).cellStyle = headerStyle;
 
       kitchenSheet.cell(CellIndex.indexByString('B1')).cellStyle = headerStyle;
@@ -1160,6 +1184,7 @@ class _DailyProductSummaryScreenState extends State<DailyProductSummaryScreen> {
       packingSheet.setColumnWidth(0, 12);
       packingSheet.setColumnWidth(1, 18);
       packingSheet.setColumnWidth(2, 22);
+      packingSheet.setColumnWidth(3, 12);
       packingSheet.setColumnWidth(3, 12);
 
       // // 고객별 포장표 머리글 스타일
@@ -1176,6 +1201,7 @@ class _DailyProductSummaryScreenState extends State<DailyProductSummaryScreen> {
         TextCellValue('주문번호'),
         TextCellValue('고객 이름'),
         TextCellValue('반찬 이름'),
+        TextCellValue('반찬 가격'),
         TextCellValue('주문 수량'),
       ]);
 
@@ -1183,6 +1209,7 @@ class _DailyProductSummaryScreenState extends State<DailyProductSummaryScreen> {
       packingSheet.cell(CellIndex.indexByString('B1')).cellStyle = headerStyle;
       packingSheet.cell(CellIndex.indexByString('C1')).cellStyle = headerStyle;
       packingSheet.cell(CellIndex.indexByString('D1')).cellStyle = headerStyle;
+      packingSheet.cell(CellIndex.indexByString('E1')).cellStyle = headerStyle;
 
       // 고객별 포장 데이터 모으기
       final List<Map<String, dynamic>> packingRows = [];
@@ -1197,6 +1224,7 @@ class _DailyProductSummaryScreenState extends State<DailyProductSummaryScreen> {
             'orderId': orderId,
             'memberName': memberName,
             'productName': item['productName'].toString(),
+            'price': (item['price'] as num).toInt(),
             'quantity': (item['quantity'] as num).toInt(),
           });
         }
@@ -1219,8 +1247,27 @@ class _DailyProductSummaryScreenState extends State<DailyProductSummaryScreen> {
           TextCellValue(row['orderId'].toString()),
           TextCellValue(row['memberName']),
           TextCellValue(row['productName']),
+          IntCellValue(row['price']),
           IntCellValue(row['quantity']),
         ]);
+
+        final rowIndex = packingSheet.maxRows - 1;
+
+        for (int col = 0; col < 5; col++) {
+          packingSheet
+              .cell(
+                CellIndex.indexByColumnRow(
+                  columnIndex: col,
+                  rowIndex: rowIndex,
+                ),
+              )
+              .cellStyle = CellStyle(
+            leftBorder: Border(borderStyle: BorderStyle.Thin),
+            rightBorder: Border(borderStyle: BorderStyle.Thin),
+            topBorder: Border(borderStyle: BorderStyle.Thin),
+            bottomBorder: Border(borderStyle: BorderStyle.Thin),
+          );
+        }
       }
 
       // 엑셀 파일 저장
@@ -1246,6 +1293,114 @@ class _DailyProductSummaryScreenState extends State<DailyProductSummaryScreen> {
 
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('엑셀 저장 실패: $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // 한진택배 송장 업로드용 엑셀 생성
+  Future<void> _exportHanjinExcel() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      // 선택한 날짜의 주문 가져오기
+      final allOrders = await _fetchOrdersForExcel();
+      final orders = _filterOrdersForExcel(allOrders);
+
+      if (orders.isEmpty) {
+        throw Exception('선택한 날짜에 출력할 주문이 없습니다.');
+      }
+
+      // 한진택배 전용 엑셀 생성
+      final excel = Excel.createExcel();
+      final hanjinSheet = excel['Sheet1'];
+
+      // 한진택배 원본 양식의 1행 필드명 (순서 변경 금지)
+      hanjinSheet.appendRow([
+        TextCellValue('받으시는 분'),
+        TextCellValue('받으시는 분 전화'),
+        TextCellValue('받는분담당자'),
+        TextCellValue('받는분핸드폰'),
+        TextCellValue('받는분우편번호'),
+        TextCellValue('받는분총주소'),
+        TextCellValue('수량'),
+        TextCellValue('품목명'),
+        TextCellValue('운임Type'),
+        TextCellValue('지불조건'),
+        TextCellValue('출고번호'),
+        TextCellValue('특기사항'),
+        TextCellValue('메모1'),
+        TextCellValue('메모2'),
+        TextCellValue('메모3'),
+        TextCellValue('메모4'),
+      ]);
+
+      // 2행부터 한진택배 수령인 정보 입력
+      for (final order in orders) {
+        final receiverName = order['memberName']?.toString().trim() ?? '';
+        final receiverPhone =
+            order['memberPhoneNumber']?.toString().trim() ?? '';
+        final receiverAddress =
+            order['deliveryAddress']?.toString().trim() ?? '';
+
+        // 필수 배송정보가 없는 주문은 누락 방지를 위해 오류 표시
+        if (receiverName.isEmpty ||
+            receiverPhone.isEmpty ||
+            receiverAddress.isEmpty) {
+          throw Exception('주문번호 ${order['id']}: 받는 사람 이름, 전화번호 또는 주소가 없습니다.');
+        }
+
+        hanjinSheet.appendRow([
+          TextCellValue(receiverName), // A: 받으시는 분
+          TextCellValue(receiverPhone), // B: 받으시는 분 전화
+          TextCellValue(''), // C
+          TextCellValue(''), // D
+          TextCellValue(''), // E
+          TextCellValue(receiverAddress), // F: 받는분총주소
+          TextCellValue(''), // G
+          TextCellValue(''), // H
+          TextCellValue(''), // I
+          TextCellValue(''), // J
+          TextCellValue(''), // K
+          TextCellValue(''), // L
+          TextCellValue(''), // M
+          TextCellValue(''), // N
+          TextCellValue(''), // O
+          TextCellValue(''), // P
+        ]);
+      }
+
+      // 한진택배 엑셀 파일 저장
+      final bytes = excel.encode();
+
+      if (bytes == null) {
+        throw Exception('한진택배 엑셀 파일 생성에 실패했습니다.');
+      }
+
+      await FileSaver.instance.saveFile(
+        name: '할미샵_한진택배_$_dateString',
+        bytes: Uint8List.fromList(bytes),
+        fileExtension: 'xlsx',
+        mimeType: MimeType.microsoftExcel,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('한진택배 엑셀 파일 저장이 완료되었습니다.')));
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('한진택배 엑셀 생성 실패: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -1307,9 +1462,22 @@ class _DailyProductSummaryScreenState extends State<DailyProductSummaryScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
+                const SizedBox(height: 10),
+
+                ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _exportHanjinExcel,
+                  icon: const Icon(Icons.local_shipping),
+                  label: const Text('한진택배 송장 엑셀 저장'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
               ],
             ),
           ),
+
           if (_isLoading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
           else if (_errorMessage != null)
