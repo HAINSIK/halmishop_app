@@ -1,10 +1,15 @@
 // lib/screens/main_feed_screen.dart 전체 교체
 import 'package:flutter/material.dart';
 import 'package:halmishop_app/screens/banchan_detail_screen.dart';
+
 import '../models/banchan_model.dart';
 import '../services/banchan_service.dart';
 import 'order_list_screen.dart';
 import 'cart_screen.dart';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'live_product_admin_screen.dart';
 
 class MainFeedScreen extends StatefulWidget {
   const MainFeedScreen({super.key});
@@ -14,6 +19,19 @@ class MainFeedScreen extends StatefulWidget {
 }
 
 class _MainFeedScreenState extends State<MainFeedScreen> {
+  bool _isAdmin = false;
+
+  Future<void> _checkAdminRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isAdmin = prefs.getString('member_role') == 'ADMIN';
+
+    if (!mounted) return;
+
+    setState(() {
+      _isAdmin = isAdmin;
+    });
+  }
+
   // 💡 메인 하단 네비게이션 인덱스
   int _currentNavigationIndex = 0;
 
@@ -31,6 +49,18 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
   void initState() {
     super.initState();
     _banchanFuture = _banchanService.fetchBanchanList();
+    _checkAdminRole();
+  }
+
+  Future<void> _refreshBanchanList() async {
+    print('🔄 할미샵 새로고침 실행됨!');
+    final future = _banchanService.fetchBanchanList();
+
+    setState(() {
+      _banchanFuture = future;
+    });
+
+    await future;
   }
 
   @override
@@ -38,10 +68,30 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
     // 💡 1. 하단 메뉴 선택에 따라 다른 화면을 보여줍니다.
     return Scaffold(
       appBar: AppBar(
-        title: const Text('오늘의 젊은할미반찬 👵❤️', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          '오늘의 젊은할미반찬 👵❤️',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.orangeAccent,
         centerTitle: true,
         actions: [
+          if (_isAdmin)
+            IconButton(
+              tooltip: '라이브 상품 관리',
+              icon: const Icon(Icons.live_tv, color: Colors.white, size: 28),
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LiveProductAdminScreen(),
+                  ),
+                );
+
+                if (!mounted) return;
+
+                await _refreshBanchanList();
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.assignment, color: Colors.white, size: 28),
             onPressed: () {
@@ -49,14 +99,14 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                 _currentNavigationIndex = 2;
               });
               _orderListKey.currentState?.refreshOrders();
-            
+
               // Navigator.push(context, MaterialPageRoute(builder: (context) => const OrderListScreen()));
             },
           ),
           const SizedBox(width: 8),
         ],
       ),
-      
+
       // 💡 현재 선택된 하단 메뉴가 '장터(0번)'일 때만 카테고리 탭 화면을 보여주고, 나머지는 임시 화면 전환
       body: IndexedStack(
         index: _currentNavigationIndex,
@@ -76,7 +126,7 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
             _currentNavigationIndex = index;
           });
 
-          if(index == 2 ) {
+          if (index == 2) {
             _orderListKey.currentState?.refreshOrders();
           }
         },
@@ -84,8 +134,14 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.store), label: '장터홈'),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: '장바구니'),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: '주문내역'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart),
+            label: '장바구니',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: '주문내역',
+          ),
         ],
       ),
     );
@@ -99,18 +155,30 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
         children: [
           // 라이브 상품만 보기 스위치 바
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 10.0,
+            ),
             color: Colors.orange.shade50,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.live_tv, color: Colors.redAccent, size: 22),
+                    const Icon(
+                      Icons.live_tv,
+                      color: Colors.redAccent,
+                      size: 22,
+                    ),
                     const SizedBox(width: 8),
                     Text(
-                      _showOnlyLive ? '🔴 지금 방송중인 주인공 반찬만 보는 중' : '모든 맛있는 반찬 다 보는 중',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      _showOnlyLive
+                          ? '🔴 지금 방송중인 주인공 반찬만 보는 중'
+                          : '모든 맛있는 반찬 다 보는 중',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),
@@ -136,7 +204,10 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
               indicatorWeight: 3,
               labelColor: Colors.orangeAccent,
               unselectedLabelColor: Colors.grey,
-              labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              labelStyle: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
               tabs: categories.map((String name) => Tab(text: name)).toList(),
             ),
           ),
@@ -172,128 +243,164 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
         // 1차 필터링: 카테고리
         List<Banchan> filteredList = snapshot.data!;
         if (category != '전체') {
-          filteredList = filteredList.where((item) => item.category == category).toList();
+          filteredList = filteredList
+              .where((item) => item.category == category)
+              .toList();
         }
 
         // 2차 필터링: 라이브
         if (_showOnlyLive) {
-          filteredList = filteredList.where((item) => item.isLiveProduct == true).toList();
+          filteredList = filteredList
+              .where((item) => item.isLiveProduct == true)
+              .toList();
         }
 
         if (filteredList.isEmpty) {
           return Center(
             child: Text(
-              _showOnlyLive 
-                  ? '현재 이 카테고리에 방송 중인 반찬이 없습니더. 👵' 
+              _showOnlyLive
+                  ? '현재 이 카테고리에 방송 중인 반찬이 없습니더. 👵'
                   : '[$category] 카테고리에 준비된 반찬이 없구만유.',
-              style: const TextStyle(fontSize: 15, color: Colors.grey, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 15,
+                color: Colors.grey,
+                fontWeight: FontWeight.bold,
+              ),
               textAlign: TextAlign.center,
             ),
           );
         }
 
-        return GridView.builder(
-          padding: const EdgeInsets.all(12.0),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.72,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: filteredList.length,
-          itemBuilder: (context, index) {
-            final banchan = filteredList[index];
-            return GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => BanchanDetailScreen(banchan: banchan)),
-                );
-              },
-              child: Card(
-                clipBehavior: Clip.antiAlias,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 3,
-                child: Stack(
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Image.network(
-                            banchan.imageUrl,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => Container(
-                              color: Colors.grey.shade200,
-                              child: const Center(
-                                child: Icon(Icons.fastfood, color: Colors.orange, size: 40),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  banchan.category,
-                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                banchan.name,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${banchan.price}원',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: Colors.orange.shade800,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+        return RefreshIndicator(
+          onRefresh: _refreshBanchanList,
+          child: GridView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(12.0),
+
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.72,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: filteredList.length,
+            itemBuilder: (context, index) {
+              final banchan = filteredList[index];
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          BanchanDetailScreen(banchan: banchan),
                     ),
-                    if (banchan.isLiveProduct == true)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.redAccent,
-                            borderRadius: BorderRadius.circular(4),
+                  );
+                },
+                child: Card(
+                  clipBehavior: Clip.antiAlias,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 3,
+                  child: Stack(
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Image.network(
+                              banchan.imageUrl,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    color: Colors.grey.shade200,
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.fastfood,
+                                        color: Colors.orange,
+                                        size: 40,
+                                      ),
+                                    ),
+                                  ),
+                            ),
                           ),
-                          child: const Text(
-                            '방송중',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    banchan.category,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  banchan.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${banchan.price}원',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: Colors.orange.shade800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (banchan.isLiveProduct == true)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              '방송중',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         );
       },
     );
