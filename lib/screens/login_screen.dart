@@ -50,6 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // 현재 로그인한 회원의 장바구니 복원
       await cartProvider.restoreCart();
+      await AuthService().checkSavedTokenStatus();
 
       if (!mounted) return;
 

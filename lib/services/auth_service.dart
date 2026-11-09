@@ -176,6 +176,49 @@ class AuthService {
     }
   }
 
+  Future<bool> hasSavedLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final token = prefs.getString('jwt_token');
+    final memberId = prefs.getString('member_id');
+
+    if (token == null || token.isEmpty) {
+      return false;
+    }
+
+    if (memberId == null || memberId.isEmpty) {
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<int?> checkSavedTokenStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwt_token');
+
+    if (token == null || token.isEmpty) {
+      print('저장된 JWT 토큰이 없습니다.');
+      return null;
+    }
+
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/auth-check'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 15));
+
+      print('JWT 인증 확인 HTTP 상태: ${response.statusCode}');
+
+      return response.statusCode;
+    } catch (e) {
+      print('JWT 인증 확인 통신 오류: $e');
+      return null;
+    }
+  }
+
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('jwt_token');
