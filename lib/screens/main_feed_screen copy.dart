@@ -4,8 +4,13 @@ import 'package:halmishop_app/screens/banchan_detail_screen.dart';
 
 import '../models/banchan_model.dart';
 import '../services/banchan_service.dart';
+import '../services/auth_service.dart';
+import '../cart_provider.dart';
 import 'order_list_screen.dart';
 import 'cart_screen.dart';
+import 'login_screen.dart';
+
+import 'package:provider/provider.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -101,6 +106,74 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
               _orderListKey.currentState?.refreshOrders();
 
               // Navigator.push(context, MaterialPageRoute(builder: (context) => const OrderListScreen()));
+            },
+          ),
+          IconButton(
+            tooltip: '로그아웃',
+            icon: const Icon(Icons.logout, color: Colors.white, size: 28),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (dialogContext) {
+                  return AlertDialog(
+                    title: const Text('로그아웃'),
+                    content: const Text('정말 로그아웃하시겠습니까?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(dialogContext);
+                        },
+                        child: const Text('취소'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () async {
+                          // 로그아웃 확인창 닫기
+                          Navigator.pop(dialogContext);
+
+                          // 로그인 정보 삭제
+                          // 현재 회원의 장바구니 저장 완료 대기
+                          final cartProvider = context.read<CartProvider>();
+
+                          try {
+                            await cartProvider.waitForCartSave();
+                          } catch (e) {
+                            if (!mounted) return;
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  '장바구니 저장에 실패했습니다. 잠시 후 다시 시도해주세요.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+
+                          if (!mounted) return;
+
+                          // 로그인 정보 삭제
+                          await AuthService().logout();
+
+                          if (!mounted) return;
+
+                          // 화면에 남아 있는 장바구니 초기화
+                          cartProvider.clearCartForAccountChange();
+
+                          // 로그인 화면으로 이동
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LoginScreen(),
+                            ),
+                            (route) => false,
+                          );
+                        },
+                        child: const Text('로그아웃'),
+                      ),
+                    ],
+                  );
+                },
+              );
             },
           ),
           const SizedBox(width: 8),

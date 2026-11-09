@@ -6,26 +6,33 @@ class OrderItemRequest {
 
   Map<String, dynamic> toJson() => {'id': id, 'quantity': quantity};
 
-  factory OrderItemRequest.fromJson(Map<String, dynamic> json) => OrderItemRequest(
-    id: _asInt(json['id']),
-    quantity: _asInt(json['quantity']),
-  );
+  factory OrderItemRequest.fromJson(Map<String, dynamic> json) =>
+      OrderItemRequest(
+        id: _asInt(json['id']),
+        quantity: _asInt(json['quantity']),
+      );
 }
 
 class OrderRequest {
   final String deliveryAddress;
   final String depositorName;
+  final String recipientName;
+  final String recipientPhone;
   final List<OrderItemRequest> items;
 
   const OrderRequest({
     required this.deliveryAddress,
     required this.depositorName,
+    required this.recipientName,
+    required this.recipientPhone,
     required this.items,
   });
 
   Map<String, dynamic> toJson() => {
     'deliveryAddress': deliveryAddress,
     'depositorName': depositorName,
+    'recipientName': recipientName,
+    'recipientPhone': recipientPhone,
     'items': items.map((item) => item.toJson()).toList(),
   };
 }

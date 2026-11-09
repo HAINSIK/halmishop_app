@@ -2,16 +2,23 @@ class RegisterRequest {
   final String password;
   final String name;
   final String phoneNumber;
+  final String verificationToken;
 
   RegisterRequest({
     required this.password,
     required this.name,
     required this.phoneNumber,
+    required this.verificationToken,
   });
 
   // 서버로 보낼 JSON 구조 변환
   Map<String, dynamic> toJson() {
-    return {'password': password, 'name': name, 'phoneNumber': phoneNumber};
+    return {
+      'password': password,
+      'name': name,
+      'phoneNumber': phoneNumber,
+      'verificationToken': verificationToken,
+    };
   }
 }
 // lib/models/user_model.dart 에 아래 내용 추가

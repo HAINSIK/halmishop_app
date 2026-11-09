@@ -192,8 +192,15 @@ class _CartScreenState extends State<CartScreen> {
                             // 💡 1. 팝업창 안의 입력 컨트롤러 선언
                             final TextEditingController addressController =
                                 TextEditingController();
+
                             final TextEditingController depositorController =
                                 TextEditingController();
+
+                            final TextEditingController
+                            recipientNameController = TextEditingController();
+
+                            final TextEditingController
+                            recipientPhoneController = TextEditingController();
 
                             // 💡 2. 정보 입력용 다이얼로그 열기
                             showDialog(
@@ -210,37 +217,71 @@ class _CartScreenState extends State<CartScreen> {
                                     fontSize: 18,
                                   ),
                                 ),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Text('맛깔나는 반찬을 어디로 보내드릴까유?'),
-                                    const SizedBox(height: 16),
-                                    TextField(
-                                      controller: depositorController,
-                                      decoration: const InputDecoration(
-                                        labelText: '입금자명',
-                                        hintText: '예: 홍길동',
-                                        border: OutlineInputBorder(),
-                                        prefixIcon: Icon(
-                                          Icons.person,
-                                          color: Colors.orangeAccent,
+                                content: SingleChildScrollView(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text('맛깔나는 반찬을 어디로 보내드릴까유?'),
+                                      const SizedBox(height: 16),
+                                      TextField(
+                                        controller: depositorController,
+                                        decoration: const InputDecoration(
+                                          labelText: '입금자명',
+                                          hintText: '예: 홍길동',
+                                          border: OutlineInputBorder(),
+                                          prefixIcon: Icon(
+                                            Icons.person,
+                                            color: Colors.orangeAccent,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    TextField(
-                                      controller: addressController,
-                                      decoration: const InputDecoration(
-                                        labelText: '받으실 배송지 주소',
-                                        hintText: '상세주소까지 적어주셔유',
-                                        border: OutlineInputBorder(),
-                                        prefixIcon: Icon(
-                                          Icons.home,
-                                          color: Colors.orangeAccent,
+
+                                      const SizedBox(height: 12),
+
+                                      TextField(
+                                        controller: recipientNameController,
+                                        decoration: const InputDecoration(
+                                          labelText: '받으시는 분 이름',
+                                          hintText: '예: 홍길동',
+                                          border: OutlineInputBorder(),
+                                          prefixIcon: Icon(
+                                            Icons.person_outline,
+                                            color: Colors.orangeAccent,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
+
+                                      const SizedBox(height: 12),
+
+                                      TextField(
+                                        controller: recipientPhoneController,
+                                        keyboardType: TextInputType.phone,
+                                        decoration: const InputDecoration(
+                                          labelText: '받으시는 분 연락처',
+                                          hintText: '예: 01012345678',
+                                          border: OutlineInputBorder(),
+                                          prefixIcon: Icon(
+                                            Icons.phone,
+                                            color: Colors.orangeAccent,
+                                          ),
+                                        ),
+                                      ),
+
+                                      const SizedBox(height: 12),
+                                      TextField(
+                                        controller: addressController,
+                                        decoration: const InputDecoration(
+                                          labelText: '받으실 배송지 주소',
+                                          hintText: '상세주소까지 적어주셔유',
+                                          border: OutlineInputBorder(),
+                                          prefixIcon: Icon(
+                                            Icons.home,
+                                            color: Colors.orangeAccent,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                                 actions: [
                                   TextButton(
@@ -258,6 +299,12 @@ class _CartScreenState extends State<CartScreen> {
                                       if (depositorController.text
                                               .trim()
                                               .isEmpty ||
+                                          recipientNameController.text
+                                              .trim()
+                                              .isEmpty ||
+                                          recipientPhoneController.text
+                                              .trim()
+                                              .isEmpty ||
                                           addressController.text
                                               .trim()
                                               .isEmpty) {
@@ -265,10 +312,31 @@ class _CartScreenState extends State<CartScreen> {
                                             .showSnackBar(
                                               const SnackBar(
                                                 content: Text(
-                                                  '⚠️ 입금자명과 배송지를 모두 적어주셔야 합니더!',
+                                                  '⚠️ 입금자명, 받으시는 분, 연락처, 배송 주소를 모두 입력해주세요.',
                                                 ),
                                               ),
                                             );
+                                        return;
+                                      }
+
+                                      final recipientPhone =
+                                          recipientPhoneController.text
+                                              .replaceAll(
+                                                RegExp(r'[^0-9]'),
+                                                '',
+                                              );
+
+                                      if (!RegExp(r'^01[016789]\d{7,8}$')
+                                          .hasMatch(recipientPhone)) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              '⚠️ 받으시는 분의 휴대폰 번호를 정확히 입력해주세요.',
+                                            ),
+                                          ),
+                                        );
                                         return;
                                       }
                                       final total = cartProvider.totalPrice;
@@ -280,6 +348,10 @@ class _CartScreenState extends State<CartScreen> {
                                                 .trim(),
                                             depositor: depositorController.text
                                                 .trim(),
+                                            recipientName:
+                                                recipientNameController.text
+                                                    .trim(),
+                                            recipientPhone: recipientPhone,
                                           );
                                       if (isSuccess) {
                                         Navigator.pop(context); // 입력 팝업 닫기

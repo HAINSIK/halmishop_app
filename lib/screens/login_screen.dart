@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+
 import '../notification_service.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import 'register_screen.dart';
+import 'reset_password_screen.dart';
 //import 'main_feed_screen.dart'; // ◀ [필수] 메인 피드 화면을 정상 인식하도록 임포트 추가
 import 'main_feed_screen copy.dart'; // ◀ [필수] 메인 피드 화면을 정상 인식하도록 임포트 추가
+
+import 'package:provider/provider.dart';
+
+import '../cart_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -36,9 +42,20 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = false);
 
     if (success) {
+      if (!mounted) return;
+
+      // 이전 회원의 장바구니가 화면에 남지 않도록 초기화
+      final cartProvider = context.read<CartProvider>();
+      cartProvider.clearCartForAccountChange();
+
+      // 현재 로그인한 회원의 장바구니 복원
+      await cartProvider.restoreCart();
+
+      if (!mounted) return;
+
       // 로그인 성공 후 FCM 토큰을 서버에 등록
       NotificationService.registerToken();
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('젊은할미반찬가게에 오신 것을 환영합니다! ❤️')),
@@ -103,6 +120,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         );
                       },
                       child: const Text('아직 회원이 아니신가요? 회원가입하기'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ResetPasswordScreen(),
+                          ),
+                        );
+                      },
+                      child: const Text('비밀번호를 잊으셨나요? 비밀번호 찾기'),
                     ),
                   ],
                 ),

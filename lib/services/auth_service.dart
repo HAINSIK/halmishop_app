@@ -1,11 +1,88 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/user_model.dart';
 import 'api_config.dart';
 
 class AuthService {
   String get baseUrl => '${ApiConfig.baseUrl}/api/members';
+
+  // 휴대폰 인증번호 발송
+  Future<bool> requestPhoneVerification(
+    String phoneNumber, {
+    String purpose = 'JOIN',
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${ApiConfig.baseUrl}/api/phone-verification/request'),
+            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            body: jsonEncode({
+              'phoneNumber': phoneNumber.trim(),
+              'purpose': purpose,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        print('휴대폰 인증번호 발송 성공');
+        return true;
+      }
+
+      print(
+        '인증번호 발송 실패 (${response.statusCode}): '
+        '${utf8.decode(response.bodyBytes)}',
+      );
+      return false;
+    } catch (e) {
+      print('휴대폰 인증번호 발송 통신 오류: $e');
+      return false;
+    }
+  }
+
+  // 휴대폰 인증번호 확인 및 일회용 토큰 발급
+  Future<String?> confirmPhoneVerification(
+    String phoneNumber,
+    String code, {
+    String purpose = 'JOIN',
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('${ApiConfig.baseUrl}/api/phone-verification/confirm'),
+            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            body: jsonEncode({
+              'phoneNumber': phoneNumber.trim(),
+              'purpose': purpose,
+              'code': code.trim(),
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+        final token = data['verificationToken']?.toString();
+
+        if (data['verified'] == true && token != null && token.isNotEmpty) {
+          print('휴대폰 인증 성공');
+          return token;
+        }
+      }
+
+      print(
+        '휴대폰 인증 실패 (${response.statusCode}): '
+        '${utf8.decode(response.bodyBytes)}',
+      );
+
+      return null;
+    } catch (e) {
+      print('휴대폰 인증 확인 통신 오류: $e');
+      return null;
+    }
+  }
 
   Future<bool> register(RegisterRequest request) async {
     try {
@@ -34,11 +111,15 @@ class AuthService {
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) {
-        print('로그인 실패 (${response.statusCode}): ${utf8.decode(response.bodyBytes)}');
+        print(
+          '로그인 실패 (${response.statusCode}): ${utf8.decode(response.bodyBytes)}',
+        );
         return false;
       }
 
-      final Map<String, dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+      final Map<String, dynamic> data = jsonDecode(
+        utf8.decode(response.bodyBytes),
+      );
       final token = data['token']?.toString() ?? '';
       final memberId = data['memberId']?.toString() ?? '';
       final role = data['role']?.toString() ?? 'CUSTOMER';
@@ -55,6 +136,42 @@ class AuthService {
       return true;
     } catch (e) {
       print('로그인 통신 오류: $e');
+      return false;
+    }
+  }
+
+  // SMS 인증 후 비밀번호 재설정
+  Future<bool> resetPassword({
+    required String phoneNumber,
+    required String newPassword,
+    required String verificationToken,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/reset-password'),
+            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            body: jsonEncode({
+              'phoneNumber': phoneNumber.trim(),
+              'newPassword': newPassword,
+              'verificationToken': verificationToken,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        print('비밀번호 재설정 성공');
+        return true;
+      }
+
+      print(
+        '비밀번호 재설정 실패 (${response.statusCode}): '
+        '${utf8.decode(response.bodyBytes)}',
+      );
+
+      return false;
+    } catch (e) {
+      print('비밀번호 재설정 통신 오류: $e');
       return false;
     }
   }
