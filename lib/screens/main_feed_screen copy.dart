@@ -11,6 +11,7 @@ import 'cart_screen.dart';
 import 'login_screen.dart';
 
 import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -69,9 +70,54 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    // 💡 1. 하단 메뉴 선택에 따라 다른 화면을 보여줍니다.
-    return Scaffold(
+Widget build(BuildContext context) {
+  // 💡 1. 하단 메뉴 선택에 따라 다른 화면을 보여줍니다.
+  return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+
+        // 장바구니 또는 주문내역이면 장터홈으로 이동
+        if (_currentNavigationIndex != 0) {
+          setState(() {
+            _currentNavigationIndex = 0;
+          });
+          return;
+        }
+
+        // 장터홈에서는 종료 확인 창 표시
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              title: const Text('할미샵 종료'),
+              content: const Text('할미샵을 종료하시겠습니까?'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext, false);
+                  },
+                  child: const Text('취소'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext, true);
+                  },
+                  child: const Text('종료'),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (!mounted) return;
+
+        if (shouldExit == true) {
+          debugPrint('🚪 할미샵 종료 선택됨');
+          SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text(
           '오늘의 젊은할미반찬 👵❤️',
@@ -217,6 +263,7 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 

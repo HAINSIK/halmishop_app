@@ -14,18 +14,42 @@ class AutoLoginScreen extends StatefulWidget {
   State<AutoLoginScreen> createState() => _AutoLoginScreenState();
 }
 
-class _AutoLoginScreenState extends State<AutoLoginScreen> {
+class _AutoLoginScreenState extends State<AutoLoginScreen>
+    with TickerProviderStateMixin {
 
   bool _connectionFailed = false;
+
+  late final AnimationController _loadingController;
+  late final AnimationController _circleController;
 
   @override
   void initState() {
     super.initState();
+
+    // 가로 진행 막대: 3초 동안 한 번만 진행
+    _loadingController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3000),
+    )..forward();
+
+    // 원형 서클: 3초마다 계속 회전
+    _circleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3000),
+    )..repeat();
+
     _checkSavedLogin();
   }
 
+  @override
+void dispose() {
+  _loadingController.dispose();
+  _circleController.dispose();
+  super.dispose();
+}
+
 Future<void> _checkSavedLogin() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
+    await Future.delayed(const Duration(milliseconds: 3000));
 
     if (!mounted) return;
 
@@ -138,18 +162,21 @@ Future<void> _checkSavedLogin() async {
 
                 Align(
                     alignment: const Alignment(0, 0.70),
-                    child: const Column(
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         SizedBox(
                           width: 34,
                           height: 34,
-                          child: CircularProgressIndicator(
-                            color: Color(0xFF578D28),
-                            strokeWidth: 3,
+                          child: RotationTransition(
+                            turns: _circleController,
+                            child: const CircularProgressIndicator(
+                              value: 0.75,
+                              color: Color(0xFF578D28),
+                              strokeWidth: 4,
+                            ),
                           ),
                         ),
-
                         SizedBox(height: 20),
 
                         Text(
@@ -163,15 +190,23 @@ Future<void> _checkSavedLogin() async {
 
                         SizedBox(height: 20),
 
+                     
                         SizedBox(
                           width: 220,
-                          child: LinearProgressIndicator(
-                            color: Color(0xFF578D28),
-                            backgroundColor: Color(0xFFD9D2C8),
-                            minHeight: 7,
-                            borderRadius: BorderRadius.all(Radius.circular(10)),
+                          child: AnimatedBuilder(
+                            animation: _loadingController,
+                            builder: (context, child) {
+                              return LinearProgressIndicator(
+                                value: _loadingController.value,
+                                color: const Color(0xFF578D28),
+                                backgroundColor: const Color(0xFFD9D2C8),
+                                minHeight: 7,
+                                borderRadius: BorderRadius.circular(10),
+                              );
+                            },
                           ),
                         ),
+
                       ],
                     ),
                   ),
