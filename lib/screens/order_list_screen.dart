@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:excel/excel.dart';
 import 'package:file_saver/file_saver.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'dart:typed_data';
 
@@ -1277,12 +1278,36 @@ class _DailyProductSummaryScreenState extends State<DailyProductSummaryScreen> {
         throw Exception('엑셀 파일 생성에 실패했습니다.');
       }
 
-      await FileSaver.instance.saveFile(
-        name: '할미샵_주문정리_$_dateString',
-        bytes: Uint8List.fromList(bytes),
-        fileExtension: 'xlsx',
-        mimeType: MimeType.microsoftExcel,
-      );
+      String? savedPath;
+
+      if (kIsWeb) {
+        // 크롬: 기존처럼 자동 다운로드
+        savedPath = await FileSaver.instance.saveFile(
+          name: '할미샵_주문정리_$_dateString',
+          bytes: Uint8List.fromList(bytes),
+          fileExtension: 'xlsx',
+          mimeType: MimeType.microsoftExcel,
+        );
+      } else {
+        // 갤럭시: 저장 위치 선택 창 열기
+        savedPath = await FileSaver.instance.saveAs(
+          name: '할미샵_주문정리_$_dateString',
+          bytes: Uint8List.fromList(bytes),
+          fileExtension: 'xlsx',
+          mimeType: MimeType.microsoftExcel,
+        );
+
+        // 사용자가 저장을 취소한 경우
+        if (savedPath == null) {
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('파일 저장을 취소했습니다.')));
+          return;
+        }
+      }
+
+      debugPrint('📁 주문 엑셀 저장 결과: $savedPath');
 
       if (!mounted) return;
 
@@ -1384,12 +1409,37 @@ class _DailyProductSummaryScreenState extends State<DailyProductSummaryScreen> {
         throw Exception('한진택배 엑셀 파일 생성에 실패했습니다.');
       }
 
-      await FileSaver.instance.saveFile(
-        name: '할미샵_한진택배_$_dateString',
-        bytes: Uint8List.fromList(bytes),
-        fileExtension: 'xlsx',
-        mimeType: MimeType.microsoftExcel,
-      );
+      String? savedPath;
+
+      if (kIsWeb) {
+        // 크롬: 기존처럼 자동 다운로드
+        savedPath = await FileSaver.instance.saveFile(
+          name: '할미샵_한진택배_$_dateString',
+          bytes: Uint8List.fromList(bytes),
+          fileExtension: 'xlsx',
+          mimeType: MimeType.microsoftExcel,
+        );
+      } else {
+        // 갤럭시: 저장 위치 선택 창 열기
+        savedPath = await FileSaver.instance.saveAs(
+          name: '할미샵_한진택배_$_dateString',
+          bytes: Uint8List.fromList(bytes),
+          fileExtension: 'xlsx',
+          mimeType: MimeType.microsoftExcel,
+        );
+
+        // 저장을 취소한 경우
+        if (savedPath == null) {
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('한진택배 엑셀 저장을 취소했습니다.')));
+          return;
+        }
+      }
+
+      debugPrint('📁 한진택배 엑셀 저장 결과: $savedPath');
 
       if (!mounted) return;
 
