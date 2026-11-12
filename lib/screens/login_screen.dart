@@ -26,6 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _isPasswordVisible = false;
 
   void _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
@@ -78,64 +79,341 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('젊은할미반찬가게 로그인'),
-        backgroundColor: Colors.orangeAccent,
-      ),
+      backgroundColor: const Color(0xFFF8F4E9),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    TextFormField(
-                      controller: _phoneController,
-                      decoration: const InputDecoration(labelText: '전화번호'),
-                      validator: (v) => v!.isEmpty ? '전화번호를 입력하세요.' : null,
-                    ),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(labelText: '비밀번호'),
-                      validator: (v) => v!.isEmpty ? '비밀번호를 입력하세요.' : null,
-                    ),
-                    const SizedBox(height: 30),
-                    ElevatedButton(
-                      onPressed: _handleLogin,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        minimumSize: const Size(double.infinity, 50),
-                      ),
-                      child: const Text('로그인', style: TextStyle(fontSize: 18)),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const RegisterScreen(),
+          : Stack(
+              children: [
+                // 하단 장식 이미지
+
+                // 기존 로그인 화면
+                SafeArea(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 24,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight > 48
+                                ? constraints.maxHeight - 48
+                                : 0,
                           ),
-                        );
-                      },
-                      child: const Text('아직 회원이 아니신가요? 회원가입하기'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ResetPasswordScreen(),
+                          child: Center(
+                            child: Form(
+                              key: _formKey,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Image.asset(
+                                    'assets/images/characters/halmi_login.png',
+                                    height: 180,
+                                    fit: BoxFit.contain,
+                                  ),
+
+                                  const SizedBox(height: 12),
+
+                                  const Text(
+                                    '젊은할미 반찬가게',
+                                    style: TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF244C3A),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 10),
+
+                                  const Text(
+                                    '정성 가득한 집밥, 오늘도 맛있게 준비했어요.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w400,
+                                      color: Color(0xFF777777),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 40),
+
+                                  TextFormField(
+                                    controller: _phoneController,
+                                    keyboardType: TextInputType.phone,
+                                    textInputAction: TextInputAction.next,
+
+                                    decoration: InputDecoration(
+                                      hintText: '휴대폰 번호를 입력하세요',
+
+                                      hintStyle: const TextStyle(
+                                        fontSize: 14,
+                                        color: Color(0xFF999999),
+                                      ),
+
+                                      prefixIcon: const Icon(
+                                        Icons.phone_outlined,
+                                        color: Color(0xFF6B625B),
+                                        size: 21,
+                                      ),
+
+                                      filled: true,
+                                      fillColor: Colors.white,
+
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            vertical: 18,
+                                            horizontal: 16,
+                                          ),
+
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFFE5DED3),
+                                          width: 1,
+                                        ),
+                                      ),
+
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFF244C3A),
+                                          width: 1.5,
+                                        ),
+                                      ),
+
+                                      errorBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Colors.redAccent,
+                                        ),
+                                      ),
+
+                                      focusedErrorBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Colors.redAccent,
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                    ),
+
+                                    validator: (v) => v == null || v.isEmpty
+                                        ? '전화번호를 입력하세요.'
+                                        : null,
+                                  ),
+                                  TextFormField(
+                                    controller: _passwordController,
+                                    obscureText: !_isPasswordVisible,
+                                    textInputAction: TextInputAction.done,
+                                    onFieldSubmitted: (_) =>
+                                        _isLoading ? null : _handleLogin(),
+
+                                    decoration: InputDecoration(
+                                      hintText: '비밀번호를 입력하세요',
+                                      hintStyle: const TextStyle(
+                                        fontSize: 14,
+                                        color: Color(0xFF999999),
+                                      ),
+
+                                      prefixIcon: const Icon(
+                                        Icons.lock_outline,
+                                        color: Color(0xFF6B625B),
+                                        size: 21,
+                                      ),
+
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _isPasswordVisible
+                                              ? Icons.visibility_outlined
+                                              : Icons.visibility_off_outlined,
+                                          color: const Color(0xFF888888),
+                                          size: 21,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            _isPasswordVisible =
+                                                !_isPasswordVisible;
+                                          });
+                                        },
+                                      ),
+
+                                      filled: true,
+                                      fillColor: Colors.white,
+
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            vertical: 18,
+                                            horizontal: 16,
+                                          ),
+
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFFE5DED3),
+                                        ),
+                                      ),
+
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFF244C3A),
+                                          width: 1.5,
+                                        ),
+                                      ),
+
+                                      errorBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Colors.redAccent,
+                                        ),
+                                      ),
+
+                                      focusedErrorBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Colors.redAccent,
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                    ),
+
+                                    validator: (v) => v == null || v.isEmpty
+                                        ? '비밀번호를 입력하세요.'
+                                        : null,
+                                  ),
+                                  const SizedBox(height: 30),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 54,
+                                    child: ElevatedButton(
+                                      onPressed: _isLoading
+                                          ? null
+                                          : _handleLogin,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xFFF47B08,
+                                        ),
+                                        foregroundColor: Colors.white,
+                                        disabledBackgroundColor: const Color(
+                                          0xFFFFB875,
+                                        ),
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        '로그인',
+                                        style: TextStyle(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 54,
+                                    child: OutlinedButton(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const RegisterScreen(),
+                                          ),
+                                        );
+                                      },
+                                      style: OutlinedButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        foregroundColor: const Color(
+                                          0xFF56341E,
+                                        ),
+                                        side: const BorderSide(
+                                          color: Color(0xFF56341E),
+                                          width: 1.3,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        '회원가입',
+                                        style: TextStyle(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 18),
+
+                                  Center(
+                                    child: TextButton(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const ResetPasswordScreen(),
+                                          ),
+                                        );
+                                      },
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: const Color(
+                                          0xFF77695F,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                      ),
+                                      child: const Text.rich(
+                                        TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text: '비밀번호를 잊으셨나요?  ',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w400,
+                                                color: Color(0xFF77695F),
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: '비밀번호 재설정',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: Color(0xFF56341E),
+                                                decoration:
+                                                    TextDecoration.underline,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        );
-                      },
-                      child: const Text('비밀번호를 잊으셨나요? 비밀번호 찾기'),
-                    ),
-                  ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
+              ],
             ),
     );
   }
