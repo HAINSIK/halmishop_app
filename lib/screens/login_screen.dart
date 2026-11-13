@@ -5,8 +5,7 @@ import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import 'register_screen.dart';
 import 'reset_password_screen.dart';
-//import 'main_feed_screen.dart'; // ◀ [필수] 메인 피드 화면을 정상 인식하도록 임포트 추가
-import 'main_feed_screen copy.dart'; // ◀ [필수] 메인 피드 화면을 정상 인식하도록 임포트 추가
+import 'main_feed_screen.dart'; // ◀ [필수] 메인 피드 화면을 정상 인식하도록 임포트 추가
 
 import 'package:provider/provider.dart';
 
@@ -144,8 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     //     color: Color(0xFF244C3A),
                                     //   ),
                                     // ),
-
-                                    // const SizedBox(height: 10),
+                                    const SizedBox(height: 2),
                                     const Text(
                                       '정성 가득한 집밥, 오늘도 맛있게 준비했어요.',
                                       textAlign: TextAlign.center,
@@ -156,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                     ),
 
-                                    const SizedBox(height: 20),
+                                    const SizedBox(height: 7),
 
                                     TextFormField(
                                       controller: _phoneController,
@@ -318,7 +316,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           ? '비밀번호를 입력하세요.'
                                           : null,
                                     ),
-                                    const SizedBox(height: 30),
+                                    const SizedBox(height: 15),
                                     SizedBox(
                                       width: double.infinity,
                                       height: 54,
@@ -390,7 +388,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(height: 18),
+                                    const SizedBox(height: 5),
 
                                     Center(
                                       child: TextButton(

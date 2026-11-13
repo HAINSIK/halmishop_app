@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import 'firebase_options.dart';
-import 'screens/login_screen.dart';
+// import 'screens/login_screen.dart';
 import 'screens/auto_login_screen.dart';
 import 'cart_provider.dart';
 import 'notification_service.dart';

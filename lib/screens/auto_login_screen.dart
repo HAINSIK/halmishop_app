@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import 'login_screen.dart';
-import 'main_feed_screen copy.dart';
+import 'main_feed_screen.dart';
+
 import 'package:provider/provider.dart';
 
 import '../cart_provider.dart';
@@ -16,7 +17,6 @@ class AutoLoginScreen extends StatefulWidget {
 
 class _AutoLoginScreenState extends State<AutoLoginScreen>
     with TickerProviderStateMixin {
-
   bool _connectionFailed = false;
 
   late final AnimationController _loadingController;
@@ -42,13 +42,13 @@ class _AutoLoginScreenState extends State<AutoLoginScreen>
   }
 
   @override
-void dispose() {
-  _loadingController.dispose();
-  _circleController.dispose();
-  super.dispose();
-}
+  void dispose() {
+    _loadingController.dispose();
+    _circleController.dispose();
+    super.dispose();
+  }
 
-Future<void> _checkSavedLogin() async {
+  Future<void> _checkSavedLogin() async {
     await Future.delayed(const Duration(milliseconds: 3000));
 
     if (!mounted) return;
@@ -130,7 +130,7 @@ Future<void> _checkSavedLogin() async {
 
   @override
   Widget build(BuildContext context) {
-   return Scaffold(
+    return Scaffold(
       backgroundColor: const Color(0xFFFFF8EC),
       body: Center(
         child: _connectionFailed
@@ -152,7 +152,7 @@ Future<void> _checkSavedLogin() async {
                   ),
                 ],
               )
-           : Stack(
+            : Stack(
                 fit: StackFit.expand,
                 children: [
                   Image.asset(
@@ -160,7 +160,7 @@ Future<void> _checkSavedLogin() async {
                     fit: BoxFit.cover,
                   ),
 
-                Align(
+                  Align(
                     alignment: const Alignment(0, 0.70),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -190,7 +190,6 @@ Future<void> _checkSavedLogin() async {
 
                         SizedBox(height: 20),
 
-                     
                         SizedBox(
                           width: 220,
                           child: AnimatedBuilder(
@@ -206,7 +205,6 @@ Future<void> _checkSavedLogin() async {
                             },
                           ),
                         ),
-
                       ],
                     ),
                   ),
