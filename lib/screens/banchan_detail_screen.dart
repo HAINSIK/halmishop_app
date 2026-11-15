@@ -2,11 +2,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
 import '../models/banchan_model.dart';
 import '../cart_provider.dart';
 import 'order_list_screen.dart'; // 👈 주문 완료 후 주문내역 이동을 위해 추가
 import '../models/order_model.dart';
 import '../services/order_service.dart';
+import '../services/api_config.dart';
 
 class BanchanDetailScreen extends StatefulWidget {
   final Banchan banchan;
@@ -18,6 +23,40 @@ class BanchanDetailScreen extends StatefulWidget {
 }
 
 class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
+  // 148-5-8-4단계: 상세사진 조회 결과 보관
+  late Future<List<String>> _detailImagesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _detailImagesFuture = _fetchDetailImages();
+  }
+
+  // 148-5-8-2단계: 상품 상세사진 목록 조회
+  Future<List<String>> _fetchDetailImages() async {
+    try {
+      final url = Uri.parse(
+        '${ApiConfig.baseUrl}/api/products/${widget.banchan.id}/images',
+      );
+
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) {
+        return [];
+      }
+
+      final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+
+      return data
+          .map((item) => item['imageUrl']?.toString() ?? '')
+          .where((imageUrl) => imageUrl.isNotEmpty)
+          .toList();
+    } catch (e) {
+      debugPrint('상세사진 조회 오류: $e');
+      return [];
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -34,19 +73,56 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 반찬 대형 이미지
-            Image.network(
-              widget.banchan.imageUrl,
-              width: double.infinity,
-              height: 300,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                width: double.infinity,
-                height: 300,
-                color: Colors.grey.shade200,
-                child: const Center(
-                  child: Icon(Icons.fastfood, color: Colors.orange, size: 80),
-                ),
-              ),
+
+            // 148-3-17-31단계: 상품 상세 대표사진 경로 처리
+            Builder(
+              builder: (context) {
+                final imagePath = widget.banchan.imageUrl.trim();
+                final uri = Uri.tryParse(imagePath);
+
+                // images/products 폴더의 사진만 표시
+                final isProductImage =
+                    uri != null && uri.path.startsWith('/images/products/');
+
+                if (!isProductImage) {
+                  return Container(
+                    width: double.infinity,
+                    height: 300,
+                    color: Colors.grey.shade200,
+                    child: const Center(
+                      child: Icon(
+                        Icons.fastfood,
+                        color: Colors.orange,
+                        size: 80,
+                      ),
+                    ),
+                  );
+                }
+
+                // 전체 URL은 그대로 사용, 상대경로는 서버 주소 추가
+                final imageUrl = uri.hasScheme
+                    ? imagePath
+                    : '${ApiConfig.baseUrl}$imagePath';
+
+                return Image.network(
+                  imageUrl,
+                  width: double.infinity,
+                  height: 300,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    width: double.infinity,
+                    height: 300,
+                    color: Colors.grey.shade200,
+                    child: const Center(
+                      child: Icon(
+                        Icons.fastfood,
+                        color: Colors.orange,
+                        size: 80,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
 
             // 반찬 텍스트 정보들
@@ -93,12 +169,41 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
                   const SizedBox(height: 16),
                   const Divider(thickness: 1),
                   const SizedBox(height: 16),
-                  const Text(
-                    '👵 할미의 정성이 듬뿍 들어간 손맛 반찬이구만유!\n매일 새벽 시장에서 엄선해 온 싱싱한 재료로 정성껏 버무렸으니 믿고 맛나게 잡숴보셔유. 조미료는 일절 쓰지 않아 건강에도 아주 좋당깨!',
-                    style: TextStyle(
-                      fontSize: 15,
-                      height: 1.6,
-                      color: Colors.black87,
+
+                  // 148-4-4단계: 상품별 상세 설명 표시
+
+                  // 148-4-5단계: 젊은할미 상품 설명 디자인
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF8ED),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFF2E5CF)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '상품 설명',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1F4D3A),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          widget.banchan.description.trim().isNotEmpty
+                              ? widget.banchan.description
+                              : '등록된 상품 설명이 없습니다.',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            height: 1.7,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -384,6 +489,59 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
                   color: Colors.white,
                 ),
               ),
+            ),
+
+            // 148-5-8-3단계: 상품 상세사진 세로 표시
+            FutureBuilder<List<String>>(
+              future: _fetchDetailImages(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+
+                final images = snapshot.data!;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 24),
+                    const Text(
+                      '상품 상세사진',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1F4D3A),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    ...images.map((imagePath) {
+                      final uri = Uri.tryParse(imagePath);
+
+                      if (uri == null ||
+                          !uri.path.startsWith('/images/products/')) {
+                        return const SizedBox.shrink();
+                      }
+
+                      final imageUrl = uri.hasScheme
+                          ? imagePath
+                          : '${ApiConfig.baseUrl}$imagePath';
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Image.network(
+                          imageUrl,
+                          width: double.infinity,
+                          fit: BoxFit.fitWidth,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                      );
+                    }),
+                  ],
+                );
+              },
             ),
           ],
         ),

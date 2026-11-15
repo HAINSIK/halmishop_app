@@ -788,7 +788,20 @@ class OrderListScreenState extends State<OrderListScreen> {
                       //   ),
                       // ),
                       Text(
-                        '💰 주문일시: ${order['orderDate']}',
+                        '💰 주문일시: ${(() {
+                          final rawDate = order['orderDate']?.toString() ?? '';
+                          final date = DateTime.tryParse(rawDate);
+
+                          if (date == null) return rawDate;
+
+                          final year = date.year;
+                          final month = date.month.toString().padLeft(2, '0');
+                          final day = date.day.toString().padLeft(2, '0');
+                          final hour = date.hour.toString().padLeft(2, '0');
+                          final minute = date.minute.toString().padLeft(2, '0');
+
+                          return '$year.$month.$day $hour:$minute';
+                        })()}',
                         style: const TextStyle(
                           color: Colors.grey,
                           fontSize: 13,

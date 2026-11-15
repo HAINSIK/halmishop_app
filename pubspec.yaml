@@ -46,6 +46,7 @@ dependencies:
   firebase_messaging: ^17.0.1
   path_provider: ^2.1.6
   file_saver: ^0.7.0
+  image_picker: ^1.2.4
 
 
 
@@ -78,7 +79,8 @@ flutter:
     - assets/images/splash/
     - assets/images/characters/
     - assets/images/login/
-    - assets/images/register/register_background.png
+    - assets/images/register/
+    - assets/images/categories/
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

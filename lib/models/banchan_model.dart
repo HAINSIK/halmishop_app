@@ -4,7 +4,12 @@ class Banchan {
   final int price;
   final String imageUrl;
   final String category;
+  final String description; // 148-4-3: 상품 상세 설명
   final bool isLiveProduct;
+  // 143-11: 관리자 지정 추천 반찬 여부
+  final bool isRecommended;
+  // 146-2-8-5-6단계: 오늘 준비한 반찬 여부
+  final bool isTodayPrepared;
 
   Banchan({
     required this.id,
@@ -13,6 +18,9 @@ class Banchan {
     required this.category,
     required this.imageUrl,
     required this.isLiveProduct,
+    this.isRecommended = false,
+    this.isTodayPrepared = false,
+    this.description = '', // 기존 Banchan 생성 코드와 호환
   });
 
   // JSON 데이터를 플러터 객체로 변환
@@ -41,7 +49,7 @@ class Banchan {
 
     final rawLive = json['liveProduct'];
     bool parsedLive = false;
-    
+
     if (rawLive != null) {
       if (rawLive is bool) {
         parsedLive = rawLive; // 이미 bool 형태면 그대로 대입
@@ -54,13 +62,26 @@ class Banchan {
       }
     }
 
-     return Banchan(
+    return Banchan(
       id: parsedId,
       name: json['name'] ?? '',
-      price: parsedPrice, 
-      imageUrl: json['imageUrl'] ?? 'https://placeholder.com', 
+      price: parsedPrice,
+      imageUrl: json['imageUrl'] ?? 'https://placeholder.com',
       category: json['category'] ?? '',
-      isLiveProduct: parsedLive, // ◀ 정밀 가공된 결과 바인딩 완료!
+      description: json['description']?.toString() ?? '',
+      isLiveProduct: parsedLive,
+
+      // 143-11: 서버의 recommended 값을 Flutter에 연결
+      isRecommended:
+          json['recommended'] == true ||
+          json['recommended'] == 1 ||
+          json['recommended']?.toString().toLowerCase() == 'true',
+
+      // 146-2-8-5-6단계: 오늘 준비한 반찬 정보
+      isTodayPrepared:
+          json['todayPrepared'] == true ||
+          json['todayPrepared'] == 1 ||
+          json['todayPrepared']?.toString().toLowerCase() == 'true',
     );
-    }
+  }
 }
