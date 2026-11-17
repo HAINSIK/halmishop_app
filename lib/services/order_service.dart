@@ -1,6 +1,9 @@
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/order_model.dart';
 import 'api_config.dart';
 
@@ -22,12 +25,18 @@ class OrderService {
   Future<bool> createOrder(OrderRequest request) async {
     try {
       final response = await http
-          .post(Uri.parse(baseUrl), headers: await _headers(), body: jsonEncode(request.toJson()))
+          .post(
+            Uri.parse(baseUrl),
+            headers: await _headers(),
+            body: jsonEncode(request.toJson()),
+          )
           .timeout(const Duration(seconds: 20));
-      print('주문 응답 ${response.statusCode}: ${utf8.decode(response.bodyBytes)}');
+      debugPrint(
+        '주문 응답 ${response.statusCode}: ${utf8.decode(response.bodyBytes)}',
+      );
       return response.statusCode == 201 || response.statusCode == 200;
     } catch (e) {
-      print('주문 요청 오류: $e');
+      debugPrint('주문 요청 오류: $e');
       return false;
     }
   }

@@ -313,7 +313,9 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
                                   ),
                                 );
 
-                                if (confirmed != true || !mounted) return;
+                                if (confirmed != true || !context.mounted) {
+                                  return;
+                                }
 
                                 Navigator.pop(context);
 

@@ -62,7 +62,7 @@ class OrderListScreenState extends State<OrderListScreen> {
       }
       return [];
     } catch (e) {
-      print('❌ 주문 내역 가져오기 실패: $e');
+      debugPrint('❌ 주문 내역 가져오기 실패: $e');
       return [];
     }
   }
@@ -90,7 +90,7 @@ class OrderListScreenState extends State<OrderListScreen> {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('주문이 정상적으로 취소되었어유!')));
       } else {
-        print('❌ 삭제 실패: ${response.statusCode}');
+        debugPrint('❌ 삭제 실패: ${response.statusCode}');
       }
     } catch (e) {
       _showErrorDialog('서버와 연결이 안 되네유. 네트워크를 확인하셔요!\n($e)');
@@ -119,10 +119,10 @@ class OrderListScreenState extends State<OrderListScreen> {
           SnackBar(content: Text('주문 상태가 [$newStatus](으)로 변경되었어유!')),
         );
       } else {
-        print('❌ 상태 변경 실패: ${response.statusCode}');
+        debugPrint('❌ 상태 변경 실패: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ 상태 변경 통신 에러: $e');
+      debugPrint('❌ 상태 변경 통신 에러: $e');
     }
   }
 
@@ -243,10 +243,10 @@ class OrderListScreenState extends State<OrderListScreen> {
           context,
         ).showSnackBar(const SnackBar(content: Text('배송지 주소가 똑부러지게 변경되었어유!')));
       } else {
-        print('❌ 주소 변경 실패: ${response.statusCode}');
+        debugPrint('❌ 주소 변경 실패: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ 주소 변경 통신 에러: $e');
+      debugPrint('❌ 주소 변경 통신 에러: $e');
     }
   }
 
@@ -268,10 +268,10 @@ class OrderListScreenState extends State<OrderListScreen> {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('입금자명이 똑부러지게 변경되었어유!')));
       } else {
-        print('❌ 입금자 변경 실패: ${response.statusCode}');
+        debugPrint('❌ 입금자 변경 실패: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ 입금자 변경 통신 에러: $e');
+      debugPrint('❌ 입금자 변경 통신 에러: $e');
     }
   }
 

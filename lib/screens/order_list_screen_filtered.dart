@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../services/api_config.dart';
 
 class OrderListScreen extends StatefulWidget {
@@ -39,24 +40,23 @@ class OrderListScreenState extends State<OrderListScreen> {
     });
   }
 
-
   Future<List<dynamic>> _fetchOrders() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
-      if (mounted) setState(() => _isAdmin = prefs.getString('member_role') == 'ADMIN');
+      if (mounted)
+        setState(() => _isAdmin = prefs.getString('member_role') == 'ADMIN');
       if (token == null || token.isEmpty) return [];
-      final response = await http.get(
-        Uri.parse(baseUrl),
-        headers: {'Authorization': 'Bearer $token'},
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .get(Uri.parse(baseUrl), headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         return jsonDecode(utf8.decode(response.bodyBytes));
       }
       return [];
     } catch (e) {
-      print('❌ 주문 내역 가져오기 실패: $e');
+      debugPrint('❌ 주문 내역 가져오기 실패: $e');
       return [];
     }
   }
@@ -72,7 +72,9 @@ class OrderListScreenState extends State<OrderListScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token') ?? '';
-      final response = await http.delete(url, headers: {'Authorization': 'Bearer $token'}).timeout(const Duration(seconds: 15));
+      final response = await http
+          .delete(url, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         setState(() {
@@ -82,7 +84,7 @@ class OrderListScreenState extends State<OrderListScreen> {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('주문이 정상적으로 취소되었어유!')));
       } else {
-        print('❌ 삭제 실패: ${response.statusCode}');
+        debugPrint('❌ 삭제 실패: ${response.statusCode}');
       }
     } catch (e) {
       _showErrorDialog('서버와 연결이 안 되네유. 네트워크를 확인하셔요!\n($e)');
@@ -94,7 +96,10 @@ class OrderListScreenState extends State<OrderListScreen> {
       // 백엔드 PATCH API 호출
       final response = await http.patch(
         Uri.parse('$baseUrl/$orderId/orderstatus'),
-        headers: {"Content-Type": "application/json", 'Authorization': 'Bearer ${await _savedToken()}'},
+        headers: {
+          "Content-Type": "application/json",
+          'Authorization': 'Bearer ${await _savedToken()}',
+        },
         body: jsonEncode({"order_status": newStatus}),
       );
 
@@ -108,10 +113,10 @@ class OrderListScreenState extends State<OrderListScreen> {
           SnackBar(content: Text('주문 상태가 [$newStatus](으)로 변경되었어유!')),
         );
       } else {
-        print('❌ 상태 변경 실패: ${response.statusCode}');
+        debugPrint('❌ 상태 변경 실패: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ 상태 변경 통신 에러: $e');
+      debugPrint('❌ 상태 변경 통신 에러: $e');
     }
   }
 
@@ -119,7 +124,10 @@ class OrderListScreenState extends State<OrderListScreen> {
     try {
       final response = await http.patch(
         Uri.parse('$baseUrl/$orderId/delivery_address'),
-        headers: {"Content-Type": "application/json", 'Authorization': 'Bearer ${await _savedToken()}'},
+        headers: {
+          "Content-Type": "application/json",
+          'Authorization': 'Bearer ${await _savedToken()}',
+        },
         body: jsonEncode({"delivery_address": newAddress}),
       );
 
@@ -131,18 +139,21 @@ class OrderListScreenState extends State<OrderListScreen> {
           context,
         ).showSnackBar(const SnackBar(content: Text('배송지 주소가 똑부러지게 변경되었어유!')));
       } else {
-        print('❌ 주소 변경 실패: ${response.statusCode}');
+        debugPrint('❌ 주소 변경 실패: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ 주소 변경 통신 에러: $e');
+      debugPrint('❌ 주소 변경 통신 에러: $e');
     }
   }
 
-   Future<void> _updatedepositorName(int orderId, String newName) async {
+  Future<void> _updatedepositorName(int orderId, String newName) async {
     try {
       final response = await http.patch(
         Uri.parse('$baseUrl/$orderId/depositor_Name'),
-        headers: {"Content-Type": "application/json", 'Authorization': 'Bearer ${await _savedToken()}'},
+        headers: {
+          "Content-Type": "application/json",
+          'Authorization': 'Bearer ${await _savedToken()}',
+        },
         body: jsonEncode({"depositor_name": newName}),
       );
 
@@ -150,17 +161,15 @@ class OrderListScreenState extends State<OrderListScreen> {
         setState(() {
           _orderFuture = _fetchOrders(); // 성공 시 장부 새로고침
         });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('입금자명이 똑부러지게 변경되었어유!')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('입금자명이 똑부러지게 변경되었어유!')));
       } else {
-        print('❌ 입금자 변경 실패: ${response.statusCode}');
+        debugPrint('❌ 입금자 변경 실패: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ 입금자 변경 통신 에러: $e');
+      debugPrint('❌ 입금자 변경 통신 에러: $e');
     }
   }
-
 
   void _showErrorDialog(String message) {
     showDialog(
@@ -213,7 +222,7 @@ class OrderListScreenState extends State<OrderListScreen> {
     );
   }
 
-   void _showNameDialog(int orderId, String currentAddress) {
+  void _showNameDialog(int orderId, String currentAddress) {
     final TextEditingController nameController = TextEditingController(
       text: currentAddress,
     );
@@ -247,7 +256,6 @@ class OrderListScreenState extends State<OrderListScreen> {
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -308,11 +316,11 @@ class OrderListScreenState extends State<OrderListScreen> {
           final filteredOrders = _selectedStatus == '전체'
               ? orders
               : orders
-                  .where(
-                    (order) =>
-                        (order['orderStatus'] ?? '주문접수') == _selectedStatus,
-                  )
-                  .toList();
+                    .where(
+                      (order) =>
+                          (order['orderStatus'] ?? '주문접수') == _selectedStatus,
+                    )
+                    .toList();
 
           if (filteredOrders.isEmpty) {
             return Center(
@@ -488,7 +496,8 @@ class OrderListScreenState extends State<OrderListScreen> {
                               ),
                             ),
                           ),
-                            if (_isAdmin || order['orderStatus'] == '주문접수') TextButton(
+                          if (_isAdmin || order['orderStatus'] == '주문접수')
+                            TextButton(
                               style: TextButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 minimumSize: Size.zero,
@@ -525,8 +534,7 @@ class OrderListScreenState extends State<OrderListScreen> {
                       //     fontSize: 13,
                       //   ),
                       // ),
-
-                        Text(
+                      Text(
                         '💰 주문일시: ${order['orderDate']}',
                         style: const TextStyle(
                           color: Colors.grey,
@@ -538,7 +546,10 @@ class OrderListScreenState extends State<OrderListScreen> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           // 1. 배송 시작 버튼 (현재 상태가 '주문완료'일 때만 보이거나 활성화)
-                          if (_isAdmin && (order['orderStatus'] == '주문접수' || order['orderStatus'] == '입금확인' || order['orderStatus'] == '배송준비'))
+                          if (_isAdmin &&
+                              (order['orderStatus'] == '주문접수' ||
+                                  order['orderStatus'] == '입금확인' ||
+                                  order['orderStatus'] == '배송준비'))
                             ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.blue.shade400,

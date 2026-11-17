@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -27,17 +28,17 @@ class AuthService {
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        print('휴대폰 인증번호 발송 성공');
+        debugPrint('휴대폰 인증번호 발송 성공');
         return true;
       }
 
-      print(
+      debugPrint(
         '인증번호 발송 실패 (${response.statusCode}): '
         '${utf8.decode(response.bodyBytes)}',
       );
       return false;
     } catch (e) {
-      print('휴대폰 인증번호 발송 통신 오류: $e');
+      debugPrint('휴대폰 인증번호 발송 통신 오류: $e');
       return false;
     }
   }
@@ -67,19 +68,19 @@ class AuthService {
         final token = data['verificationToken']?.toString();
 
         if (data['verified'] == true && token != null && token.isNotEmpty) {
-          print('휴대폰 인증 성공');
+          debugPrint('휴대폰 인증 성공');
           return token;
         }
       }
 
-      print(
+      debugPrint(
         '휴대폰 인증 실패 (${response.statusCode}): '
         '${utf8.decode(response.bodyBytes)}',
       );
 
       return null;
     } catch (e) {
-      print('휴대폰 인증 확인 통신 오류: $e');
+      debugPrint('휴대폰 인증 확인 통신 오류: $e');
       return null;
     }
   }
@@ -95,7 +96,7 @@ class AuthService {
           .timeout(const Duration(seconds: 15));
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
-      print('회원가입 통신 오류: $e');
+      debugPrint('회원가입 통신 오류: $e');
       return false;
     }
   }
@@ -111,7 +112,7 @@ class AuthService {
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) {
-        print(
+        debugPrint(
           '로그인 실패 (${response.statusCode}): ${utf8.decode(response.bodyBytes)}',
         );
         return false;
@@ -124,7 +125,7 @@ class AuthService {
       final memberId = data['memberId']?.toString() ?? '';
       final role = data['role']?.toString() ?? 'CUSTOMER';
       if (token.isEmpty || memberId.isEmpty) {
-        print('로그인 응답에 token/memberId가 없습니다. 서버 응답 형식을 확인하세요.');
+        debugPrint('로그인 응답에 token/memberId가 없습니다. 서버 응답 형식을 확인하세요.');
         return false;
       }
 
@@ -135,7 +136,7 @@ class AuthService {
       await prefs.setString('member_name', data['name']?.toString() ?? '');
       return true;
     } catch (e) {
-      print('로그인 통신 오류: $e');
+      debugPrint('로그인 통신 오류: $e');
       return false;
     }
   }
@@ -160,18 +161,18 @@ class AuthService {
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        print('비밀번호 재설정 성공');
+        debugPrint('비밀번호 재설정 성공');
         return true;
       }
 
-      print(
+      debugPrint(
         '비밀번호 재설정 실패 (${response.statusCode}): '
         '${utf8.decode(response.bodyBytes)}',
       );
 
       return false;
     } catch (e) {
-      print('비밀번호 재설정 통신 오류: $e');
+      debugPrint('비밀번호 재설정 통신 오류: $e');
       return false;
     }
   }
@@ -198,7 +199,7 @@ class AuthService {
     final token = prefs.getString('jwt_token');
 
     if (token == null || token.isEmpty) {
-      print('저장된 JWT 토큰이 없습니다.');
+      debugPrint('저장된 JWT 토큰이 없습니다.');
       return null;
     }
 
@@ -210,11 +211,11 @@ class AuthService {
           )
           .timeout(const Duration(seconds: 15));
 
-      print('JWT 인증 확인 HTTP 상태: ${response.statusCode}');
+      debugPrint('JWT 인증 확인 HTTP 상태: ${response.statusCode}');
 
       return response.statusCode;
     } catch (e) {
-      print('JWT 인증 확인 통신 오류: $e');
+      debugPrint('JWT 인증 확인 통신 오류: $e');
       return null;
     }
   }

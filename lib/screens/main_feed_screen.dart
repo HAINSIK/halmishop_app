@@ -1,5 +1,7 @@
 // lib/screens/main_feed_screen.dart 전체 교체
 import 'package:flutter/material.dart';
+// 149-6-5단계: 네트워크 이미지 디스크 캐싱
+import 'package:cached_network_image/cached_network_image.dart';
 
 // 144-27-6단계: 공지사항 API 통신
 import 'dart:convert';
@@ -23,6 +25,8 @@ import 'notice_list_screen.dart';
 import 'admin_notice_screen.dart';
 import 'admin_banner_screen.dart';
 import 'product_register_screen.dart';
+// 149-2-2-4단계: 관리자센터 화면 연결
+import 'admin_dashboard_screen.dart';
 
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
@@ -179,7 +183,6 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
   // 146-2-1단계: 쇼핑몰 하단 메뉴 인덱스 정의
   static const int _homeTabIndex = 0;
   static const int _categoryTabIndex = 1;
-  static const int _cartTabIndex = 2;
   static const int _orderTabIndex = 3;
 
   // 마이페이지는 추후 추가 예정
@@ -203,7 +206,7 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
 
   // 143-10-4단계: 공지사항 표시 여부
   // 추후 관리자 설정 및 서버 데이터와 연결 예정
-  bool _showNotice = true;
+  final bool _showNotice = true;
 
   // 144-27-3단계: 서버에서 조회한 공개 공지사항 목록
   List<dynamic> _notices = [];
@@ -299,7 +302,7 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
   }
 
   Future<void> _refreshBanchanList() async {
-    print('🔄 할미샵 새로고침 실행됨!');
+    debugPrint('🔄 할미샵 새로고침 실행됨!');
     final future = _banchanService.fetchBanchanList();
 
     setState(() {
@@ -427,146 +430,175 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
           centerTitle: false,
           elevation: 0,
           actions: [
-            // 143-11-13: 관리자 상품 관리 통합 메뉴
+            // 149-2-2-5단계: 관리자센터 화면 이동
             if (_isAdmin)
-              PopupMenuButton<String>(
-                tooltip: '상품 관리자 메뉴',
+              IconButton(
+                tooltip: '젊은할미 관리자센터',
                 icon: const Icon(
                   Icons.admin_panel_settings,
                   color: Colors.white,
                   size: 28,
                 ),
-                onSelected: (value) async {
-                  // 148-3-4단계: 관리자 상품등록 화면 이동
-                  if (value == 'productRegister') {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ProductRegisterScreen(),
-                      ),
-                    );
-                  } else if (value == 'live') {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const LiveProductAdminScreen(),
-                      ),
-                    );
-                  } else if (value == 'recommended') {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            const RecommendedProductAdminScreen(),
-                      ),
-                    );
-                  } else if (value == 'todayPrepared') {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const TodayPreparedAdminScreen(),
-                      ),
-                    );
-                  } else if (value == 'notice') {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AdminNoticeScreen(),
-                      ),
-                    );
-                  } else if (value == 'banner') {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AdminBannerScreen(),
-                      ),
-                    );
-                  }
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AdminDashboardScreen(),
+                    ),
+                  );
 
                   if (!mounted) return;
 
-                  // 관리 화면에서 돌아오면 상품 목록 새로고침
+                  // 관리자센터에서 돌아오면 기존 데이터 새로고침
                   await _refreshBanchanList();
+                  if (!mounted) return;
 
-                  // 공지사항도 최신 데이터로 새로고침
                   await _fetchNotices();
+                  if (!mounted) return;
 
-                  // 145-34-12단계: 공개 배너도 최신 데이터로 새로고침
                   await _fetchBanners();
                 },
-                itemBuilder: (context) => const [
-                  // 148-3-1단계: 관리자 상품등록 메뉴
-                  PopupMenuItem<String>(
-                    value: 'productRegister',
-                    child: Row(
-                      children: [
-                        Icon(Icons.add_box_outlined, color: Color(0xFFF47B08)),
-                        SizedBox(width: 12),
-                        Text('상품등록'),
-                      ],
-                    ),
-                  ),
-
-                  PopupMenuItem<String>(
-                    value: 'notice',
-                    child: Row(
-                      children: [
-                        Icon(Icons.campaign_outlined, color: Color(0xFFF47B08)),
-                        SizedBox(width: 12),
-                        Text('공지사항 관리'),
-                      ],
-                    ),
-                  ),
-
-                  PopupMenuItem<String>(
-                    value: 'banner',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.view_carousel_outlined,
-                          color: Color(0xFFF47B08),
-                        ),
-                        SizedBox(width: 12),
-                        Text('배너 관리'),
-                      ],
-                    ),
-                  ),
-
-                  PopupMenuItem<String>(
-                    value: 'live',
-                    child: Row(
-                      children: [
-                        Icon(Icons.live_tv, color: Color(0xFFF47B08)),
-                        SizedBox(width: 12),
-                        Text('라이브 상품 관리'),
-                      ],
-                    ),
-                  ),
-
-                  PopupMenuItem<String>(
-                    value: 'recommended',
-                    child: Row(
-                      children: [
-                        Icon(Icons.star, color: Color(0xFFF47B08)),
-                        SizedBox(width: 12),
-                        Text('추천 반찬 관리'),
-                      ],
-                    ),
-                  ),
-
-                  // 146-2-8-5-7-3-2단계: 오늘 준비한 반찬 관리
-                  PopupMenuItem<String>(
-                    value: 'todayPrepared',
-                    child: Row(
-                      children: [
-                        Icon(Icons.restaurant_menu, color: Color(0xFFF47B08)),
-                        SizedBox(width: 12),
-                        Text('지금 준비된 반찬 관리'),
-                      ],
-                    ),
-                  ),
-                ],
               ),
+            // 143-11-13: 관리자 상품 관리 통합 메뉴
+            // if (_isAdmin)
+            //   PopupMenuButton<String>(
+            //     tooltip: '상품 관리자 메뉴',
+            //     icon: const Icon(
+            //       Icons.admin_panel_settings,
+            //       color: Colors.white,
+            //       size: 28,
+            //     ),
+            //     onSelected: (value) async {
+            //       // 148-3-4단계: 관리자 상품등록 화면 이동
+            //       if (value == 'productRegister') {
+            //         await Navigator.push(
+            //           context,
+            //           MaterialPageRoute(
+            //             builder: (context) => const ProductRegisterScreen(),
+            //           ),
+            //         );
+            //       } else if (value == 'live') {
+            //         await Navigator.push(
+            //           context,
+            //           MaterialPageRoute(
+            //             builder: (context) => const LiveProductAdminScreen(),
+            //           ),
+            //         );
+            //       } else if (value == 'recommended') {
+            //         await Navigator.push(
+            //           context,
+            //           MaterialPageRoute(
+            //             builder: (context) =>
+            //                 const RecommendedProductAdminScreen(),
+            //           ),
+            //         );
+            //       } else if (value == 'todayPrepared') {
+            //         await Navigator.push(
+            //           context,
+            //           MaterialPageRoute(
+            //             builder: (context) => const TodayPreparedAdminScreen(),
+            //           ),
+            //         );
+            //       } else if (value == 'notice') {
+            //         await Navigator.push(
+            //           context,
+            //           MaterialPageRoute(
+            //             builder: (context) => const AdminNoticeScreen(),
+            //           ),
+            //         );
+            //       } else if (value == 'banner') {
+            //         await Navigator.push(
+            //           context,
+            //           MaterialPageRoute(
+            //             builder: (context) => const AdminBannerScreen(),
+            //           ),
+            //         );
+            //       }
+
+            //       if (!mounted) return;
+
+            //       // 관리 화면에서 돌아오면 상품 목록 새로고침
+            //       await _refreshBanchanList();
+
+            //       // 공지사항도 최신 데이터로 새로고침
+            //       await _fetchNotices();
+
+            //       // 145-34-12단계: 공개 배너도 최신 데이터로 새로고침
+            //       await _fetchBanners();
+            //     },
+            //     itemBuilder: (context) => const [
+            //       // 148-3-1단계: 관리자 상품등록 메뉴
+            //       PopupMenuItem<String>(
+            //         value: 'productRegister',
+            //         child: Row(
+            //           children: [
+            //             Icon(Icons.add_box_outlined, color: Color(0xFFF47B08)),
+            //             SizedBox(width: 12),
+            //             Text('상품등록'),
+            //           ],
+            //         ),
+            //       ),
+
+            //       PopupMenuItem<String>(
+            //         value: 'notice',
+            //         child: Row(
+            //           children: [
+            //             Icon(Icons.campaign_outlined, color: Color(0xFFF47B08)),
+            //             SizedBox(width: 12),
+            //             Text('공지사항 관리'),
+            //           ],
+            //         ),
+            //       ),
+
+            //       PopupMenuItem<String>(
+            //         value: 'banner',
+            //         child: Row(
+            //           children: [
+            //             Icon(
+            //               Icons.view_carousel_outlined,
+            //               color: Color(0xFFF47B08),
+            //             ),
+            //             SizedBox(width: 12),
+            //             Text('배너 관리'),
+            //           ],
+            //         ),
+            //       ),
+
+            //       PopupMenuItem<String>(
+            //         value: 'live',
+            //         child: Row(
+            //           children: [
+            //             Icon(Icons.live_tv, color: Color(0xFFF47B08)),
+            //             SizedBox(width: 12),
+            //             Text('라이브 상품 관리'),
+            //           ],
+            //         ),
+            //       ),
+
+            //       PopupMenuItem<String>(
+            //         value: 'recommended',
+            //         child: Row(
+            //           children: [
+            //             Icon(Icons.star, color: Color(0xFFF47B08)),
+            //             SizedBox(width: 12),
+            //             Text('추천 반찬 관리'),
+            //           ],
+            //         ),
+            //       ),
+
+            //       // 146-2-8-5-7-3-2단계: 오늘 준비한 반찬 관리
+            //       PopupMenuItem<String>(
+            //         value: 'todayPrepared',
+            //         child: Row(
+            //           children: [
+            //             Icon(Icons.restaurant_menu, color: Color(0xFFF47B08)),
+            //             SizedBox(width: 12),
+            //             Text('지금 준비된 반찬 관리'),
+            //           ],
+            //         ),
+            //       ),
+            //     ],
+            //   ),
             IconButton(
               icon: const Icon(Icons.assignment, color: Colors.white, size: 28),
               onPressed: () {
@@ -597,17 +629,16 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                         ),
                         ElevatedButton(
                           onPressed: () async {
+                            // 비동기 작업 전에 장바구니 Provider 확보
+                            final cartProvider = context.read<CartProvider>();
+
                             // 로그아웃 확인창 닫기
                             Navigator.pop(dialogContext);
-
-                            // 로그인 정보 삭제
-                            // 현재 회원의 장바구니 저장 완료 대기
-                            final cartProvider = context.read<CartProvider>();
 
                             try {
                               await cartProvider.waitForCartSave();
                             } catch (e) {
-                              if (!mounted) return;
+                              if (!context.mounted) return;
 
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -624,7 +655,7 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                             // 로그인 정보 삭제
                             await AuthService().logout();
 
-                            if (!mounted) return;
+                            if (!context.mounted) return;
 
                             // 화면에 남아 있는 장바구니 초기화
                             cartProvider.clearCartForAccountChange();
@@ -713,44 +744,6 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
               label: '주문내역',
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  // 146-2-4단계: 일반 카테고리 카드 디자인
-  Widget _buildCategoryCard(String title, IconData icon) {
-    return Material(
-      color: const Color(0xFFF8F4E9),
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () {
-          // 다음 단계에서 상품 목록 화면 연결
-          debugPrint('📂 카테고리 선택: $title');
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE8DFD0)),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, size: 28, color: const Color(0xFFF47B08)),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF244C3A),
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -1237,13 +1230,33 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                         },
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: Image.network(
-                            imageUrl,
+
+                          child: CachedNetworkImage(
+                            imageUrl: imageUrl,
                             width: double.infinity,
                             height: 180,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
+
+                            // 149-6-5단계: 이미지 다운로드 중 표시
+                            placeholder: (context, url) {
                               return Container(
+                                width: double.infinity,
+                                height: 180,
+                                color: const Color(0xFFF1EEE6),
+                                child: const Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFF244C3A),
+                                  ),
+                                ),
+                              );
+                            },
+
+                            // 이미지 다운로드 실패 시 표시
+                            errorWidget: (context, url, error) {
+                              return Container(
+                                width: double.infinity,
+                                height: 180,
                                 color: const Color(0xFFF1EEE6),
                                 child: const Center(
                                   child: Icon(
@@ -1617,12 +1630,29 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          banchan.imageUrl,
+
+                        child: CachedNetworkImage(
+                          imageUrl: banchan.imageUrl,
                           width: 145,
                           height: 135,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
+
+                          // 149-6-8단계: 추천 반찬 이미지 디스크 캐싱
+                          placeholder: (context, url) {
+                            return Container(
+                              width: 145,
+                              height: 135,
+                              color: const Color(0xFFF8F4E9),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF244C3A),
+                                ),
+                              ),
+                            );
+                          },
+
+                          errorWidget: (context, url, error) {
                             return Container(
                               width: 145,
                               height: 135,
@@ -1897,6 +1927,9 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
 
                   final banchan = todayPrepared[index];
 
+                  // 149-7-8단계: 홈 이미지 URL 확인
+                  debugPrint('🖼️ 지금 준비된 반찬 이미지 URL: ${banchan.imageUrl}');
+
                   return Container(
                     width: 145,
                     margin: const EdgeInsets.only(right: 12),
@@ -1916,12 +1949,32 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              banchan.imageUrl,
+
+                            child: CachedNetworkImage(
+                              // 149-7-10단계: 상대경로 이미지 URL 처리
+                              imageUrl: banchan.imageUrl.startsWith('http')
+                                  ? banchan.imageUrl
+                                  : 'http://192.168.45.150:8080${banchan.imageUrl}',
                               width: 145,
                               height: 135,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
+
+                              // 149-6-7단계: 지금 준비된 반찬 이미지 캐싱
+                              placeholder: (context, url) {
+                                return Container(
+                                  width: 145,
+                                  height: 135,
+                                  color: const Color(0xFFF8F4E9),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Color(0xFF244C3A),
+                                    ),
+                                  ),
+                                );
+                              },
+
+                              errorWidget: (context, url, error) {
                                 return Container(
                                   width: 145,
                                   height: 135,
@@ -2095,21 +2148,36 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                                   ? imagePath
                                   : '${ApiConfig.baseUrl}$imagePath';
 
-                              return Image.network(
-                                imageUrl,
+                              return CachedNetworkImage(
+                                imageUrl: imageUrl,
                                 width: double.infinity,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Container(
-                                      color: Colors.grey.shade200,
-                                      child: const Center(
-                                        child: Icon(
-                                          Icons.fastfood,
-                                          color: Colors.orange,
-                                          size: 40,
-                                        ),
+
+                                // 149-6-9단계: 전체 상품 이미지 디스크 캐싱
+                                placeholder: (context, url) {
+                                  return Container(
+                                    color: const Color(0xFFF8F4E9),
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFF244C3A),
                                       ),
                                     ),
+                                  );
+                                },
+
+                                errorWidget: (context, url, error) {
+                                  return Container(
+                                    color: Colors.grey.shade200,
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.fastfood,
+                                        color: Colors.orange,
+                                        size: 40,
+                                      ),
+                                    ),
+                                  );
+                                },
                               );
                             },
                           ),

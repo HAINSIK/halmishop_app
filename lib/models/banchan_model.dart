@@ -10,6 +10,8 @@ class Banchan {
   final bool isRecommended;
   // 146-2-8-5-6단계: 오늘 준비한 반찬 여부
   final bool isTodayPrepared;
+  // 149-5-11단계: 상품 판매 가능 여부
+  final bool isSaleEnabled;
 
   Banchan({
     required this.id,
@@ -20,6 +22,7 @@ class Banchan {
     required this.isLiveProduct,
     this.isRecommended = false,
     this.isTodayPrepared = false,
+    this.isSaleEnabled = true,
     this.description = '', // 기존 Banchan 생성 코드와 호환
   });
 
@@ -82,6 +85,12 @@ class Banchan {
           json['todayPrepared'] == true ||
           json['todayPrepared'] == 1 ||
           json['todayPrepared']?.toString().toLowerCase() == 'true',
+
+      //반찬 판매 상태 여부 , // 149-5-11단계: 서버의 saleEnabled 값을 Flutter에 연결
+      isSaleEnabled:
+          json['saleEnabled'] == true ||
+          json['saleEnabled'] == 1 ||
+          json['saleEnabled']?.toString().toLowerCase() == 'true',
     );
   }
 }

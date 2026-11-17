@@ -17,6 +17,8 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
   // 148-3-16-4단계: 대표사진 선택 상태
   final ImagePicker _imagePicker = ImagePicker();
   XFile? _selectedMainImage;
+  // 148-5-9-1단계: 상품 상세사진 여러 장 선택 상태
+  final List<XFile> _selectedDetailImages = [];
   // 148-3-5단계: 상품명 입력 컨트롤러
   final TextEditingController _nameController = TextEditingController();
   // 148-3-6단계: 판매가격 입력 컨트롤러
@@ -28,6 +30,44 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
   String? _selectedCategory;
 
   final List<String> _categories = ['국·탕', '찌개·조림', '밑반찬', '김치', '기타'];
+
+  // 148-5-9-1단계: 상세사진 여러 장 선택
+  Future<void> _pickDetailImages() async {
+    try {
+      final List<XFile> images = await _imagePicker.pickMultiImage(
+        imageQuality: 85,
+      );
+
+      if (images.isEmpty || !mounted) return;
+
+      setState(() {
+        // 기존 선택 사진은 유지하고 새 사진 추가
+        final existingPaths = _selectedDetailImages
+            .map((image) => image.path)
+            .toSet();
+
+        for (final image in images) {
+          if (existingPaths.add(image.path)) {
+            _selectedDetailImages.add(image);
+          }
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('상세사진 ${_selectedDetailImages.length}장이 선택되었습니다.'),
+        ),
+      );
+    } catch (e) {
+      debugPrint('상세사진 선택 오류: $e');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('상세사진을 선택하는 중 오류가 발생했습니다.')));
+    }
+  }
 
   @override
   void dispose() {
@@ -233,6 +273,111 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
               ),
             ],
 
+            // 148-5-9-2단계: 상품 상세사진 선택 영역
+            const SizedBox(height: 28),
+
+            const Text(
+              '상품 상세사진 (선택사항)',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1F4D3A),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            const Text(
+              '상품 설명 아래에 표시할 사진을 여러 장 선택할 수 있습니다.',
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+
+            const SizedBox(height: 12),
+
+            OutlinedButton.icon(
+              onPressed: _isRegistering ? null : _pickDetailImages,
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+              label: const Text('상세사진 여러 장 선택'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF1F4D3A),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 14,
+                ),
+                side: const BorderSide(color: Color(0xFF1F4D3A)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+
+            if (_selectedDetailImages.isNotEmpty) ...[
+              const SizedBox(height: 14),
+
+              Text(
+                '선택한 상세사진 ${_selectedDetailImages.length}장',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1F4D3A),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: List.generate(_selectedDetailImages.length, (index) {
+                  final image = _selectedDetailImages[index];
+
+                  return Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: SizedBox(
+                          width: 100,
+                          height: 100,
+                          child: FutureBuilder<Uint8List>(
+                            future: image.readAsBytes(),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) {
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              }
+
+                              return Image.memory(
+                                snapshot.data!,
+                                fit: BoxFit.cover,
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+
+                      Positioned(
+                        top: 2,
+                        right: 2,
+                        child: IconButton(
+                          onPressed: _isRegistering
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _selectedDetailImages.removeAt(index);
+                                  });
+                                },
+                          icon: const Icon(Icons.cancel, color: Colors.red),
+                          tooltip: '사진 제거',
+                          constraints: const BoxConstraints(),
+                          padding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ),
+            ],
+
             const SizedBox(height: 30),
 
             // 148-3-10단계: 상품등록 버튼
@@ -307,13 +452,14 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
                         }
 
                         // 148-3-17-16단계: 사진 주소와 상품정보 함께 등록
-                        final success = await banchanService.registerProduct(
-                          name: name,
-                          price: price,
-                          category: _selectedCategory!,
-                          description: _descriptionController.text.trim(),
-                          imageUrl: imageUrl,
-                        );
+                        final int? productId = await banchanService
+                            .registerProduct(
+                              name: name,
+                              price: price,
+                              category: _selectedCategory!,
+                              description: _descriptionController.text.trim(),
+                              imageUrl: imageUrl,
+                            );
 
                         if (!mounted) return;
 
@@ -325,12 +471,41 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              success ? '상품이 정상적으로 등록되었습니다.' : '상품등록에 실패했습니다.',
+                              productId != null
+                                  ? '상품이 정상적으로 등록되었습니다.'
+                                  : '상품등록에 실패했습니다.',
                             ),
                           ),
                         );
 
-                        if (success) {
+                        if (productId != null) {
+                          // 148-5-9-3-6단계: 상세사진 순서대로 업로드
+                          int uploadedCount = 0;
+
+                          for (final image in _selectedDetailImages) {
+                            final success = await banchanService
+                                .uploadProductDetailImage(
+                                  productId: productId,
+                                  imageFile: image,
+                                );
+
+                            if (success) {
+                              uploadedCount++;
+                            }
+                          }
+
+                          if (!mounted) return;
+
+                          if (_selectedDetailImages.isNotEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  '상세사진 $uploadedCount/${_selectedDetailImages.length}장 업로드 완료',
+                                ),
+                              ),
+                            );
+                          }
+
                           Navigator.pop(context, true);
                         }
                       },
