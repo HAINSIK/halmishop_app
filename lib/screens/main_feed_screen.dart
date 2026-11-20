@@ -12,6 +12,8 @@ import 'package:http/http.dart' as http;
 
 import '../services/api_config.dart';
 
+import 'package:halmishop_app/utils/image_url_helper.dart';
+
 import 'package:halmishop_app/screens/banchan_detail_screen.dart';
 
 import '../models/banchan_model.dart';
@@ -1211,11 +1213,9 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                     itemBuilder: (context, index) {
                       final banner = _banners[index];
 
+                      // 149-7-39단계: 메인피드 배너 이미지 URL 공통 처리
                       final imagePath = banner['imageUrl']?.toString() ?? '';
-
-                      final imageUrl = imagePath.startsWith('http')
-                          ? imagePath
-                          : '${ApiConfig.baseUrl}${imagePath.startsWith('/') ? '' : '/'}$imagePath';
+                      final imageUrl = getImageUrl(imagePath);
 
                       return GestureDetector(
                         // 145-36-6단계: LIVE 배너 클릭 동작
@@ -1632,7 +1632,7 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                         borderRadius: BorderRadius.circular(12),
 
                         child: CachedNetworkImage(
-                          imageUrl: banchan.imageUrl,
+                          imageUrl: getImageUrl(banchan.imageUrl),
                           width: 145,
                           height: 135,
                           fit: BoxFit.cover,
@@ -1653,6 +1653,9 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                           },
 
                           errorWidget: (context, url, error) {
+                            debugPrint('❌ 추천 반찬 이미지 URL: $url');
+                            debugPrint('❌ 추천 반찬 이미지 오류: $error');
+
                             return Container(
                               width: 145,
                               height: 135,
@@ -1951,10 +1954,8 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                             borderRadius: BorderRadius.circular(12),
 
                             child: CachedNetworkImage(
-                              // 149-7-10단계: 상대경로 이미지 URL 처리
-                              imageUrl: banchan.imageUrl.startsWith('http')
-                                  ? banchan.imageUrl
-                                  : 'http://192.168.45.150:8080${banchan.imageUrl}',
+                              // 149-7-10단계: 공통경로 이미지 URL 처리
+                              imageUrl: getImageUrl(banchan.imageUrl),
                               width: 145,
                               height: 135,
                               fit: BoxFit.cover,
@@ -2101,6 +2102,17 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
             final banchan = filteredList[index];
             return GestureDetector(
               onTap: () {
+                // 149-7-41-10단계: 판매중지 상품 상세 진입 차단
+                if (!banchan.isSaleEnabled) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('현재 판매 준비중인 반찬입니다.'),
+                      backgroundColor: Color(0xFF244C3A),
+                    ),
+                  );
+                  return;
+                }
+
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -2249,6 +2261,33 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                               color: Colors.white,
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    // 149-7-41-9단계: 판매중지 상품 오버레이
+                    if (!banchan.isSaleEnabled)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.white.withOpacity(0.78),
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF244C3A),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                '판매 준비중',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
                         ),

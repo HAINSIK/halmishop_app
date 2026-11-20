@@ -6,12 +6,15 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'cart_screen.dart';
 import '../models/banchan_model.dart';
 import '../cart_provider.dart';
 import 'order_list_screen.dart'; // 👈 주문 완료 후 주문내역 이동을 위해 추가
 import '../models/order_model.dart';
 import '../services/order_service.dart';
 import '../services/api_config.dart';
+
+import 'package:halmishop_app/utils/image_url_helper.dart';
 
 class BanchanDetailScreen extends StatefulWidget {
   final Banchan banchan;
@@ -60,13 +63,21 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // 149-7-44-8-1단계: 상품 상세화면 상단 디자인
       appBar: AppBar(
         title: Text(
           widget.banchan.name,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
-        backgroundColor: Colors.orangeAccent,
+        backgroundColor: const Color(0xFF244C3A),
+        foregroundColor: Colors.white,
         centerTitle: true,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -100,10 +111,8 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
                 }
 
                 // 전체 URL은 그대로 사용, 상대경로는 서버 주소 추가
-                final imageUrl = uri.hasScheme
-                    ? imagePath
-                    : '${ApiConfig.baseUrl}$imagePath';
-
+                // 149-7-39단계: 공통 이미지 URL 처리
+                final imageUrl = getImageUrl(imagePath);
                 return Image.network(
                   imageUrl,
                   width: double.infinity,
@@ -137,13 +146,13 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.orange.shade100,
+                      color: const Color(0xFFE8F0E7),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       widget.banchan.category,
                       style: TextStyle(
-                        color: Colors.orange.shade900,
+                        color: const Color(0xFF244C3A),
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -163,7 +172,7 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.orange.shade800,
+                      color: const Color(0xFF244C3A),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -286,15 +295,27 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
             children: [
               // (1) 장바구니 담기 버튼
               OutlinedButton(
+                // 149-7-44-2단계: 장바구니 담기 버튼 디자인
                 style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 52),
-                  side: const BorderSide(color: Colors.orangeAccent, width: 2),
+                  minimumSize: const Size(double.infinity, 54),
+                  foregroundColor: const Color(0xFF244C3A),
+                  backgroundColor: const Color(0xFFFFFBF5),
+                  side: const BorderSide(color: Color(0xFF244C3A), width: 1.5),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  backgroundColor: Colors.orange.shade50.withOpacity(0.5),
                 ),
                 onPressed: () {
+                  // 149-7-41단계: 판매중지 상품 장바구니 담기 차단
+                  if (!widget.banchan.isSaleEnabled) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('현재 판매가 중지된 상품입니다.'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
                   context.read<CartProvider>().addBanchan(widget.banchan);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -306,13 +327,20 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
                     ),
                   );
                 },
-                child: const Text(
-                  '🛒 장바구니 담기',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orangeAccent,
-                  ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.shopping_cart_outlined, size: 21),
+                    SizedBox(width: 9),
+                    Text(
+                      '장바구니 담기',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
@@ -320,24 +348,54 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
 
               // (2) 바로 주문하기 버튼 (진하고 쨍한 입체 주황 스타일)
               ElevatedButton(
+                // 149-7-44-3단계: 바로 주문하기 버튼 디자인
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange.shade800,
-                  minimumSize: const Size(double.infinity, 52),
-                  elevation: 2,
+                  backgroundColor: const Color(0xFF244C3A),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 54),
+                  elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                onPressed: () {
-                  // 💡 1. 주소 및 입금자를 입력받을 전용 컨트롤러 선언
+                onPressed: () async {
+                  if (!widget.banchan.isSaleEnabled) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('현재 판매가 중지된 상품으로 주문할 수 없습니다.'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  // 149-7-44-4-3단계: 마지막 주문 배송정보 불러오기
+                  final lastDeliveryInfo = await loadLastDeliveryInfo();
+
+                  if (!mounted) return;
+                  // 149-7-44-4-4단계: 바로 주문하기 배송정보 자동 입력
                   final TextEditingController addressController =
-                      TextEditingController();
+                      TextEditingController(
+                        text: lastDeliveryInfo['address'] ?? '',
+                      );
+
                   final TextEditingController depositorController =
-                      TextEditingController();
+                      TextEditingController(
+                        text: lastDeliveryInfo['depositor'] ?? '',
+                      );
+
                   final TextEditingController recipientNameController =
-                      TextEditingController();
+                      TextEditingController(
+                        text: lastDeliveryInfo['recipientName'] ?? '',
+                      );
 
                   final TextEditingController recipientPhoneController =
+                      TextEditingController(
+                        text: lastDeliveryInfo['recipientPhone'] ?? '',
+                      );
+
+                  // 149-7-44-9-2단계: 주문 요청사항 입력 컨트롤러
+                  final TextEditingController orderRequestController =
                       TextEditingController();
 
                   // 💡 2. 정보 입력용 다이얼로그 팝업 열기
@@ -348,11 +406,49 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      title: const Text(
-                        '👵 바로 주문 정보 입력',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
+                      // 149-7-44-5-1단계: 바로 주문 배송정보 헤더
+                      title: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 18,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF244C3A),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.local_shipping_outlined,
+                                  color: Colors.white,
+                                  size: 26,
+                                ),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    '배송정보 입력',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              '젊은할미가 정성껏 준비해 보내드릴게요.',
+                              style: TextStyle(
+                                color: Color(0xFFF1EBDD),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       content: SingleChildScrollView(
@@ -361,76 +457,369 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
                           children: [
                             Text('"${widget.banchan.name}"을(를)\n어디로 보내드릴까유?'),
                             const SizedBox(height: 16),
+                            // 149-7-44-5-2단계: 바로 주문 입금자명 입력창
+                            const Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '입금자명',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF244C3A),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+
                             TextField(
                               controller: depositorController,
-                              decoration: const InputDecoration(
-                                labelText: '입금자명',
-                                hintText: '예: 홍길동',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(
-                                  Icons.person,
-                                  color: Colors.orangeAccent,
+                              decoration: InputDecoration(
+                                hintText: '입금자명을 입력해 주세요',
+                                floatingLabelBehavior:
+                                    FloatingLabelBehavior.never,
+                                filled: true,
+                                fillColor: const Color(0xFFFFFBF5),
+                                prefixIcon: const Icon(
+                                  Icons.account_balance_wallet_outlined,
+                                  color: Color(0xFF244C3A),
+                                ),
+                                labelStyle: const TextStyle(
+                                  color: Color(0xFF607568),
+                                  fontSize: 14,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFE2E8DF),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFF244C3A),
+                                    width: 1.5,
+                                  ),
                                 ),
                               ),
                             ),
 
                             const SizedBox(height: 12),
+
+                            // 149-7-44-5-3단계: 바로 주문 받으시는 분 이름 입력창
+                            const Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '받으시는 분 이름',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF244C3A),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
 
                             TextField(
                               controller: recipientNameController,
-                              decoration: const InputDecoration(
-                                labelText: '받으시는 분 이름',
-                                hintText: '예: 홍길동',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(
+                              decoration: InputDecoration(
+                                hintText: '받으시는 분 이름을 입력해 주세요',
+                                floatingLabelBehavior:
+                                    FloatingLabelBehavior.never,
+                                filled: true,
+                                fillColor: const Color(0xFFFFFBF5),
+                                prefixIcon: const Icon(
                                   Icons.person_outline,
-                                  color: Colors.orangeAccent,
+                                  color: Color(0xFF244C3A),
+                                ),
+                                labelStyle: const TextStyle(
+                                  color: Color(0xFF607568),
+                                  fontSize: 14,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFE2E8DF),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFF244C3A),
+                                    width: 1.5,
+                                  ),
                                 ),
                               ),
                             ),
 
                             const SizedBox(height: 12),
+
+                            // 149-7-44-5-4단계: 바로 주문 연락처 입력창
+                            const Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '받으시는 분 연락처',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF244C3A),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
 
                             TextField(
                               controller: recipientPhoneController,
                               keyboardType: TextInputType.phone,
-                              decoration: const InputDecoration(
-                                labelText: '받으시는 분 연락처',
-                                hintText: '예: 01012345678',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(
-                                  Icons.phone,
-                                  color: Colors.orangeAccent,
+                              decoration: InputDecoration(
+                                hintText: '휴대폰 번호를 입력해 주세요',
+                                floatingLabelBehavior:
+                                    FloatingLabelBehavior.never,
+                                filled: true,
+                                fillColor: const Color(0xFFFFFBF5),
+                                prefixIcon: const Icon(
+                                  Icons.phone_outlined,
+                                  color: Color(0xFF244C3A),
+                                ),
+                                labelStyle: const TextStyle(
+                                  color: Color(0xFF607568),
+                                  fontSize: 14,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFE2E8DF),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFF244C3A),
+                                    width: 1.5,
+                                  ),
                                 ),
                               ),
                             ),
                             const SizedBox(height: 12),
+                            // 149-7-44-5-5단계: 바로 주문 배송지 주소 입력창
+                            const Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '받으실 배송지 주소',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF244C3A),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+
                             TextField(
                               controller: addressController,
-                              decoration: const InputDecoration(
-                                labelText: '받으실 배송지 주소',
-                                hintText: '상세주소까지 적어주셔유',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(
-                                  Icons.home,
-                                  color: Colors.orangeAccent,
+                              maxLines: 2,
+                              minLines: 1,
+                              keyboardType: TextInputType.streetAddress,
+                              decoration: InputDecoration(
+                                hintText: '도로명 주소와 상세주소를 입력해 주세요',
+                                floatingLabelBehavior:
+                                    FloatingLabelBehavior.never,
+                                filled: true,
+                                fillColor: const Color(0xFFFFFBF5),
+                                prefixIcon: const Icon(
+                                  Icons.location_on_outlined,
+                                  color: Color(0xFF244C3A),
                                 ),
+                                labelStyle: const TextStyle(
+                                  color: Color(0xFF607568),
+                                  fontSize: 14,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFE2E8DF),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFF244C3A),
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // 149-7-44-9-3단계: 주문 요청사항 입력창
+                            const SizedBox(height: 16),
+
+                            const Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '주문 요청사항 (선택)',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF244C3A),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+
+                            TextField(
+                              controller: orderRequestController,
+                              maxLines: 3,
+                              minLines: 2,
+                              maxLength: 200,
+                              textInputAction: TextInputAction.newline,
+                              decoration: InputDecoration(
+                                hintText: '배송이나 주문 관련 요청사항을 입력해 주세요.\n예: 배송 전 연락 부탁드립니다.',
+                                hintMaxLines: 2,
+                                filled: true,
+                                fillColor: const Color(0xFFFFFBF5),
+                                contentPadding: const EdgeInsets.all(16),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFFE2E8DF),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFF244C3A),
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // 149-7-44-5-6단계: 바로 주문 상품 및 금액 표시
+                            const SizedBox(height: 20),
+
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF3F6F0),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFFDCE6D9),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    '주문 상품',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF607568),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          widget.banchan.name,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      const Text(
+                                        '1개',
+                                        style: TextStyle(
+                                          color: Color(0xFF607568),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                  const Divider(height: 24),
+
+                                  Row(
+                                    children: [
+                                      const Expanded(
+                                        child: Text(
+                                          '최종 주문금액',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF607568),
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        '${widget.banchan.price}원',
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF244C3A),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
                       actions: [
-                        TextButton(
+                        // 149-7-44-5-7단계: 바로 주문 취소 버튼
+                        OutlinedButton(
                           onPressed: () => Navigator.pop(dialogContext),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF244C3A),
+                            side: const BorderSide(color: Color(0xFFB9CDBD)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 13,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                           child: const Text(
                             '취소',
-                            style: TextStyle(color: Colors.grey),
+                            style: TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),
+                        // 149-7-44-5-8단계: 바로 주문하기 버튼 디자인
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
+                            backgroundColor: const Color(0xFF244C3A),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 13,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           onPressed: () async {
                             if (depositorController.text.trim().isEmpty ||
@@ -464,12 +853,14 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
 
                             // 현재 상세 화면에서 선택한 상품만 주문합니다.
                             // 기존 장바구니에 담긴 상품은 변경하지 않습니다.
+                            // 149-7-44-9-6단계: 바로 주문 요청사항 연결
                             final request = OrderRequest(
                               deliveryAddress: addressController.text.trim(),
                               depositorName: depositorController.text.trim(),
                               recipientName: recipientNameController.text
                                   .trim(),
                               recipientPhone: recipientPhone,
+                              orderMemo: orderRequestController.text.trim(),
                               items: [
                                 OrderItemRequest(
                                   id: widget.banchan.id,
@@ -483,9 +874,23 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
                                 .createOrder(request);
 
                             if (isSuccess) {
-                              Navigator.pop(dialogContext); // 입력 팝업 닫기
-                              Navigator.pop(context); // 상세 페이지 닫기 (메인으로 이동)
+                              try {
+                                await saveLastDeliveryInfo(
+                                  depositor: depositorController.text.trim(),
+                                  recipientName: recipientNameController.text
+                                      .trim(),
+                                  recipientPhone: recipientPhone,
+                                  address: addressController.text.trim(),
+                                );
+                              } catch (e) {
+                                debugPrint('바로 주문 배송정보 저장 실패: $e');
+                              }
 
+                              if (!mounted || !dialogContext.mounted) return;
+
+                              Navigator.pop(dialogContext); // 배송정보 입력 팝업 닫기
+
+                              // 상품 상세화면은 주문 완료 팝업을 닫을 때까지 유지
                               // 최종 주문 완료 팝업 선물하기
                               showDialog(
                                 context: context,
@@ -501,7 +906,7 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
                                     ),
                                   ),
                                   content: Text(
-                                    '${widget.banchan.name} 주문이 정상 접수되었구만유!\n맛나게 버무려 보낼 테니 주문 내역을 확인해 보셔유.',
+                                    '${widget.banchan.name} 주문이 정상 접수되었어요!\n 주문 내역을 확인해 보셔유.',
                                   ),
                                   actions: [
                                     TextButton(
@@ -518,7 +923,7 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
                                       child: const Text(
                                         '확인 완료',
                                         style: TextStyle(
-                                          color: Colors.orange,
+                                          color: const Color(0xFF244C3A),
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
@@ -528,16 +933,20 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
                               );
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('❌ 서버 저장 실패! 스프링 로그를 확인해 주셔유.'),
+                                SnackBar(
+                                  content: Text(
+                                    '⚠️ ${orderService.lastOrderError ?? '주문 처리 중 문제가 발생했습니다.'}',
+                                  ),
+                                  backgroundColor: Colors.redAccent,
+                                  duration: const Duration(seconds: 3),
                                 ),
                               );
                             }
                           },
                           child: const Text(
-                            '👵 주문하기',
+                            '주문 접수하기',
                             style: TextStyle(
-                              color: Colors.white,
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -546,13 +955,22 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
                     ),
                   );
                 },
-                child: const Text(
-                  '👵 바로 주문하기',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.shopping_bag_outlined, size: 21),
+                    SizedBox(width: 9),
+                    Text(
+                      '바로 주문하기',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(width: 9),
+                    Icon(Icons.arrow_forward_rounded, size: 19),
+                  ],
                 ),
               ),
             ],

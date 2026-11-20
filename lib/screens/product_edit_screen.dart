@@ -8,6 +8,8 @@ import 'package:flutter/foundation.dart';
 
 import '../services/api_config.dart';
 
+import 'package:halmishop_app/utils/image_url_helper.dart';
+
 class ProductEditScreen extends StatefulWidget {
   final Banchan product;
 
@@ -461,9 +463,8 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
                   borderRadius: BorderRadius.circular(12),
 
                   child: Image.network(
-                    widget.product.imageUrl.startsWith('http')
-                        ? widget.product.imageUrl
-                        : '${ApiConfig.baseUrl}${widget.product.imageUrl}',
+                    // 149-7-39단계: 공통 이미지 URL 처리
+                    getImageUrl(widget.product.imageUrl),
 
                     width: double.infinity,
                     height: 220,
@@ -589,9 +590,8 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
                     final image = entry.value;
                     final imageUrl = image['imageUrl']?.toString() ?? '';
 
-                    final fullImageUrl = imageUrl.startsWith('http')
-                        ? imageUrl
-                        : '${ApiConfig.baseUrl}$imageUrl';
+                    // 149-7-39단계: 상세사진 공통 이미지 URL 처리
+                    final fullImageUrl = getImageUrl(imageUrl);
 
                     return Stack(
                       children: [

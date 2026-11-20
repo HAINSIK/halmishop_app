@@ -196,14 +196,28 @@ class CartProvider with ChangeNotifier {
     _saveCart();
   }
 
+  // 149-7-41-11-6단계: 판매중지 상품 일괄 삭제
+  Future<void> removeCartItemsByProductIds(Set<int> productIds) async {
+    if (productIds.isEmpty) return;
+
+    _items.removeWhere((item) => productIds.contains(item.banchan.id));
+
+    notifyListeners();
+
+    await _saveCart();
+  }
+
   int get totalPrice =>
       _items.fold(0, (sum, item) => sum + item.banchan.price * item.quantity);
 
+  // 149-7-41-10단계: 장바구니 주문 실패 메시지 전달
+  String? get lastOrderError => _orderService.lastOrderError;
   Future<bool> placeOrderFromCartWithDetails({
     required String address,
     required String depositor,
     required String recipientName,
     required String recipientPhone,
+    String orderMemo = '',
   }) async {
     if (_items.isEmpty) return false;
     final request = OrderRequest(
@@ -211,6 +225,7 @@ class CartProvider with ChangeNotifier {
       depositorName: depositor.trim(),
       recipientName: recipientName.trim(),
       recipientPhone: recipientPhone.trim(),
+      orderMemo: orderMemo.trim(),
       items: _items
           .map(
             (item) =>

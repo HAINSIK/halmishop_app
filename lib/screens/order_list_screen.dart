@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart' hide BorderStyle, Border;
+import 'package:flutter/painting.dart' as painting;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:excel/excel.dart';
@@ -58,7 +59,19 @@ class OrderListScreenState extends State<OrderListScreen> {
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        return jsonDecode(utf8.decode(response.bodyBytes));
+        final orders = jsonDecode(utf8.decode(response.bodyBytes));
+
+        // 150단계: 결제정보 수신 확인
+        for (final order in orders) {
+          debugPrint(
+            '💳 주문번호: ${order['id']} / '
+            '결제수단: ${order['paymentMethod']} / '
+            '결제상태: ${order['paymentStatus']} / '
+            '입금알림: ${order['paymentNotifiedAt']} / '
+            '입금확인: ${order['paymentConfirmedAt']}',
+          );
+        }
+        return orders;
       }
       return [];
     } catch (e) {
@@ -445,8 +458,15 @@ class OrderListScreenState extends State<OrderListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('할미네 주문 장부 📜'),
-        backgroundColor: Colors.orangeAccent,
+        title: const Text(
+          '할미네 주문 장부 📜',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: const Color(0xFF244C3A),
         actions: [
           if (_isAdmin)
             IconButton(
@@ -538,10 +558,13 @@ class OrderListScreenState extends State<OrderListScreen> {
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 16.0),
+                color: Colors.white,
+                surfaceTintColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Color(0xFFE2E8DF), width: 1),
                 ),
-                elevation: 4,
+                elevation: 2,
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
@@ -554,7 +577,7 @@ class OrderListScreenState extends State<OrderListScreen> {
                             '주문번호 : #$orderId',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.orange,
+                              color: Color(0xFF244C3A),
                               fontSize: 16,
                             ),
                           ),
@@ -565,13 +588,20 @@ class OrderListScreenState extends State<OrderListScreen> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.orange.shade100,
+                              color: const Color(0xFFE8F0E7),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              order['orderStatus'] ?? '주문접수',
+                              order['orderStatus'] == '주문접수' &&
+                                      order['paymentMethod'] == 'BANK_TRANSFER'
+                                  ? (order['paymentStatus'] == 'NOTIFIED'
+                                        ? '입금확인중'
+                                        : order['paymentStatus'] == 'PAID'
+                                        ? '주문확정'
+                                        : '입금대기')
+                                  : (order['orderStatus'] ?? '주문접수'),
                               style: const TextStyle(
-                                color: Colors.orange,
+                                color: Color(0xFF244C3A),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
                               ),
@@ -595,9 +625,7 @@ class OrderListScreenState extends State<OrderListScreen> {
                                 context: context,
                                 builder: (ctx) => AlertDialog(
                                   title: const Text('주문 취소하기'),
-                                  content: Text(
-                                    '주문번호 #$orderId 내역을 정말 장부에서 지우시겠어유?',
-                                  ),
+                                  content: Text('주문번호 #$orderId 정말 취소하시겠습니까?'),
                                   actions: [
                                     TextButton(
                                       child: const Text('아니오'),
@@ -605,7 +633,7 @@ class OrderListScreenState extends State<OrderListScreen> {
                                     ),
                                     TextButton(
                                       child: const Text(
-                                        '예, 지워주셔요',
+                                        '예, 취소해주세요',
                                         style: TextStyle(
                                           color: Colors.redAccent,
                                         ),
@@ -630,6 +658,35 @@ class OrderListScreenState extends State<OrderListScreen> {
                           ),
                         ],
                       ),
+                      // 150단계: 고객 입금대기 안내
+                      if (!_isAdmin &&
+                          order['orderStatus'] == '주문접수' &&
+                          order['paymentMethod'] == 'BANK_TRANSFER' &&
+                          order['paymentStatus'] == 'WAITING') ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF8EC),
+                            borderRadius: BorderRadius.circular(10),
+                            border: painting.Border.all(
+                              color: const Color(0xFFF1DFC1),
+                            ),
+                          ),
+                          child: const Text(
+                            '💳 주문이 정상적으로 접수되었습니다.\n'
+                            '안내된 계좌로 입금하신 후 '
+                            '입금했어요 버튼을 눌러주세요.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.6,
+                              color: Color(0xFF795622),
+                            ),
+                          ),
+                        ),
+                      ],
+
                       const Divider(height: 24),
 
                       if (order['items'] is List &&
@@ -670,7 +727,7 @@ class OrderListScreenState extends State<OrderListScreen> {
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Color.fromARGB(230, 34, 32, 199),
+                                    color: Color(0xFF244C3A),
                                   ),
                                 ),
                               ],
@@ -698,7 +755,7 @@ class OrderListScreenState extends State<OrderListScreen> {
                         '총 금액: ${order['totalPrice']}원',
                         style: const TextStyle(
                           fontSize: 16,
-                          color: Colors.redAccent,
+                          color: Color(0xFF244C3A),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -721,7 +778,7 @@ class OrderListScreenState extends State<OrderListScreen> {
                                 padding: EdgeInsets.zero,
                                 minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                foregroundColor: Colors.orange,
+                                foregroundColor: const Color(0xFF607568),
                               ),
                               onPressed: () => _showAddressDialog(
                                 orderId,
@@ -755,7 +812,7 @@ class OrderListScreenState extends State<OrderListScreen> {
                                 padding: EdgeInsets.zero,
                                 minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                foregroundColor: Colors.orange,
+                                foregroundColor: const Color(0xFF607568),
                               ),
                               onPressed: () => _showNameDialog(
                                 orderId,
@@ -787,26 +844,79 @@ class OrderListScreenState extends State<OrderListScreen> {
                       //     fontSize: 13,
                       //   ),
                       // ),
-                      Text(
-                        '💰 주문일시: ${(() {
-                          final rawDate = order['orderDate']?.toString() ?? '';
-                          final date = DateTime.tryParse(rawDate);
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_today,
+                            color: Color(0xFF607568),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '주문일시: ${(() {
+                                final rawDate = order['orderDate']?.toString() ?? '';
+                                final date = DateTime.tryParse(rawDate);
 
-                          if (date == null) return rawDate;
+                                if (date == null) return rawDate;
 
-                          final year = date.year;
-                          final month = date.month.toString().padLeft(2, '0');
-                          final day = date.day.toString().padLeft(2, '0');
-                          final hour = date.hour.toString().padLeft(2, '0');
-                          final minute = date.minute.toString().padLeft(2, '0');
+                                final year = date.year;
+                                final month = date.month.toString().padLeft(2, '0');
+                                final day = date.day.toString().padLeft(2, '0');
+                                final hour = date.hour.toString().padLeft(2, '0');
+                                final minute = date.minute.toString().padLeft(2, '0');
 
-                          return '$year.$month.$day $hour:$minute';
-                        })()}',
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 13,
-                        ),
+                                return '$year.$month.$day $hour:$minute';
+                              })()}',
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
+
+                      // 149-7-44-9-22-6단계: 주문 요청사항 표시
+                      if ((order['orderMemo'] ?? '')
+                          .toString()
+                          .trim()
+                          .isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBF5),
+                            borderRadius: BorderRadius.circular(10),
+                            border: const painting.Border.fromBorderSide(
+                              BorderSide(color: Color(0xFFE2E8DF)),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '📝 주문 요청사항',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF244C3A),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                order['orderMemo'].toString(),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF444444),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
 
                       // 택배 송장 정보
                       if (order['trackingNumber'] != null &&
@@ -1584,7 +1694,7 @@ class _DailyProductSummaryScreenState extends State<DailyProductSummaryScreen> {
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Colors.blueAccent,
+                          color: Color(0xFF244C3A),
                         ),
                       ),
                     ),
@@ -1595,7 +1705,7 @@ class _DailyProductSummaryScreenState extends State<DailyProductSummaryScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
-              color: Colors.orange.shade50,
+              color: const Color(0xFFE8F0E7),
               child: Text(
                 '전체 ${_items.length}종류 · 총 $totalQuantity개',
                 textAlign: TextAlign.center,

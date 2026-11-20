@@ -9,6 +9,8 @@ import '../services/api_config.dart';
 
 import 'admin_banner_form_screen.dart';
 
+import 'package:halmishop_app/utils/image_url_helper.dart';
+
 class AdminBannerScreen extends StatefulWidget {
   const AdminBannerScreen({super.key});
 
@@ -203,11 +205,9 @@ class _AdminBannerScreenState extends State<AdminBannerScreen> {
                 final bool visible = banner['visible'] == true;
 
                 // 145-28-3단계: 상대 경로 배너 이미지 URL 변환
+                // 149-7-39단계: 관리자 배너 이미지 URL 공통 처리
                 final String imagePath = banner['imageUrl']?.toString() ?? '';
-
-                final String imageUrl = imagePath.startsWith('http')
-                    ? imagePath
-                    : '${ApiConfig.baseUrl}${imagePath.startsWith('/') ? '' : '/'}$imagePath';
+                final String imageUrl = getImageUrl(imagePath);
 
                 return Card(
                   color: Colors.white,

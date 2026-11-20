@@ -18,6 +18,7 @@ class OrderRequest {
   final String depositorName;
   final String recipientName;
   final String recipientPhone;
+  final String orderMemo;
   final List<OrderItemRequest> items;
 
   const OrderRequest({
@@ -25,6 +26,7 @@ class OrderRequest {
     required this.depositorName,
     required this.recipientName,
     required this.recipientPhone,
+    this.orderMemo = '',
     required this.items,
   });
 
@@ -33,6 +35,7 @@ class OrderRequest {
     'depositorName': depositorName,
     'recipientName': recipientName,
     'recipientPhone': recipientPhone,
+    'orderMemo': orderMemo,
     'items': items.map((item) => item.toJson()).toList(),
   };
 }
