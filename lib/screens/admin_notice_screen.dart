@@ -115,6 +115,76 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
     }
   }
 
+  // 151-36-1단계: 공지사항 푸시 중복 발송 요청 방지
+  bool _isSendingNoticePush = false;
+  // 151-35-3단계: 관리자 공지사항 푸시 발송 API
+  Future<void> _sendNoticePush(int noticeId) async {
+    // 151-36-2단계: 발송 중 중복 요청 차단
+    if (_isSendingNoticePush) {
+      debugPrint('⚠️ 공지사항 푸시 발송이 이미 진행 중입니다.');
+      return;
+    }
+
+    _isSendingNoticePush = true;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('jwt_token');
+
+      if (token == null || token.isEmpty) {
+        debugPrint('❌ 푸시 발송 실패: 로그인 정보 없음');
+        return;
+      }
+
+      final response = await http
+          .post(
+            Uri.parse(
+              '${ApiConfig.baseUrl}/api/admin/notices/$noticeId/send-push',
+            ),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final message = utf8.decode(response.bodyBytes);
+
+      if (response.statusCode == 200) {
+        debugPrint('✅ 공지사항 푸시 발송 요청 성공: $message');
+      } else if (response.statusCode == 409) {
+        debugPrint('⚠️ 이미 푸시 발송 처리된 공지사항: $message');
+      } else {
+        debugPrint('❌ 공지사항 푸시 발송 실패 (${response.statusCode}): $message');
+      }
+
+      // 151-36-3단계: 관리자에게 발송 결과 안내
+      if (!mounted) return;
+
+      String resultMessage;
+
+      if (response.statusCode == 200) {
+        resultMessage = '푸시 발송 요청이 완료되었습니다.\n$message';
+      } else if (response.statusCode == 409) {
+        resultMessage = '이미 푸시 발송 처리된 공지사항입니다.';
+      } else {
+        resultMessage =
+            '푸시 발송에 실패했습니다.\n'
+            'HTTP 상태: ${response.statusCode}';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(resultMessage),
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      debugPrint('❌ 공지사항 푸시 발송 오류: $e');
+    } finally {
+      // 발송 요청이 끝나면 다시 버튼 사용 가능
+      _isSendingNoticePush = false;
+    }
+  }
+
   // 146-3-11-1단계: 장터홈 대표 공지 지정
   Future<void> _setHomeFeaturedNotice(int noticeId) async {
     try {
@@ -282,6 +352,71 @@ class _AdminNoticeScreenState extends State<AdminNoticeScreen> {
                                 foregroundColor: const Color(0xFFF47B08),
                               ),
                             ),
+
+                            // 151-35-1단계: 관리자 공지사항 푸시 발송 버튼
+                            if (notice['visible'] == true)
+                              TextButton.icon(
+                                onPressed: () async {
+                                  final noticeId = notice['id'] as int;
+
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (dialogContext) => AlertDialog(
+                                      backgroundColor: const Color(0xFFF8F4E9),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
+                                      title: const Text(
+                                        '📢 공지사항 푸시 발송',
+                                        style: TextStyle(
+                                          color: Color(0xFF244C3A),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      content: const Text(
+                                        '이 공지사항을 전체 고객에게 푸시 알림으로 발송하시겠습니까?\n\n'
+                                        '발송 후에는 취소할 수 없으며, 동일한 공지사항은 중복 발송할 수 없습니다.',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(
+                                            dialogContext,
+                                            false,
+                                          ),
+                                          child: const Text('취소'),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () => Navigator.pop(
+                                            dialogContext,
+                                            true,
+                                          ),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(
+                                              0xFFF47B08,
+                                            ),
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          child: const Text('발송하기'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirmed != true || !mounted) return;
+
+                                  // 151-35-4단계: 관리자 확인 후 실제 푸시 발송 API 호출
+                                  debugPrint('📢 공지사항 푸시 발송 시작: $noticeId');
+
+                                  await _sendNoticePush(noticeId);
+                                },
+                                icon: const Icon(
+                                  Icons.notifications_active_outlined,
+                                ),
+                                label: const Text('푸시 발송'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFFF47B08),
+                                ),
+                              ),
 
                             TextButton.icon(
                               onPressed: () async {

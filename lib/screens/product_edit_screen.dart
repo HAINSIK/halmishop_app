@@ -301,8 +301,10 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
 
     // 새 대표사진을 선택한 경우에만 서버 업로드
     if (_selectedMainImage != null) {
+      // 152-5-4단계: 상품 ID별 대표사진 업로드
       final uploadedUrl = await banchanService.uploadProductImage(
         _selectedMainImage!,
+        productId: widget.product.id,
       );
 
       if (!mounted) return;

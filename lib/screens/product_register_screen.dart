@@ -425,31 +425,11 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
                           _isRegistering = true;
                         });
 
-                        // 148-3-17-16단계: 대표사진 서버 업로드
+                        // 152-5-5-1단계: 상품 기본정보를 먼저 등록
                         final banchanService = BanchanService();
+
+                        // 상품 ID 생성 전에는 대표사진을 업로드하지 않음
                         String? imageUrl;
-
-                        if (_selectedMainImage != null) {
-                          imageUrl = await banchanService.uploadProductImage(
-                            _selectedMainImage!,
-                          );
-
-                          if (!mounted) return;
-
-                          // 사진 업로드에 실패하면 상품등록 중단
-                          if (imageUrl == null) {
-                            setState(() {
-                              _isRegistering = false;
-                            });
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('대표사진 업로드에 실패했습니다. 다시 시도해 주세요.'),
-                              ),
-                            );
-                            return;
-                          }
-                        }
 
                         // 148-3-17-16단계: 사진 주소와 상품정보 함께 등록
                         final int? productId = await banchanService
@@ -463,10 +443,9 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
 
                         if (!mounted) return;
 
-                        // 148-3-15-2단계: 상품등록 요청 완료
-                        setState(() {
-                          _isRegistering = false;
-                        });
+                        // 152-5-5-3단계: 상품 기본정보 등록 결과 확인
+                        // 대표사진과 상세사진 업로드가 끝날 때까지
+                        // _isRegistering 상태를 true로 유지
 
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -478,7 +457,50 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
                           ),
                         );
 
+                        // 152-5-5-4단계: 상품 기본정보 등록 실패 시 버튼 복구
+                        if (productId == null) {
+                          if (!mounted) return;
+
+                          setState(() {
+                            _isRegistering = false;
+                          });
+
+                          return;
+                        }
+
                         if (productId != null) {
+                          // 152-5-5-2단계: 상품 ID 생성 후 대표사진 업로드
+                          if (_selectedMainImage != null) {
+                            final uploadedUrl = await banchanService
+                                .uploadProductImage(
+                                  _selectedMainImage!,
+                                  productId: productId,
+                                );
+
+                            if (!mounted) return;
+
+                            // 152-5-8단계: 대표사진 업로드 실패 시 중복 등록 방지
+                            if (uploadedUrl == null || uploadedUrl.isEmpty) {
+                              if (!mounted) return;
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    '상품 기본정보는 등록되었습니다. '
+                                    '대표사진 업로드에 실패했으므로 '
+                                    '상품 관리에서 사진을 다시 등록해 주세요.',
+                                  ),
+                                  duration: Duration(seconds: 4),
+                                ),
+                              );
+
+                              // 이미 상품 ID가 생성되었으므로 등록 화면 종료
+                              // 중복 상품 등록 방지
+                              Navigator.pop(context, true);
+                              return;
+                            }
+                          }
+
                           // 148-5-9-3-6단계: 상세사진 순서대로 업로드
                           int uploadedCount = 0;
 

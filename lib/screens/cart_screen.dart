@@ -50,7 +50,10 @@ Future<void> saveLastDeliveryInfo({
 }
 
 class CartScreen extends StatefulWidget {
-  const CartScreen({super.key});
+  final VoidCallback? onViewAllProducts;
+  final VoidCallback? onOrderCompleted;
+
+  const CartScreen({super.key, this.onViewAllProducts, this.onOrderCompleted});
 
   @override
   State<CartScreen> createState() => _CartScreenState();
@@ -68,20 +71,60 @@ class _CartScreenState extends State<CartScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.shopping_cart_outlined,
-                    size: 80,
-                    color: Colors.grey.shade400,
+                  Image.asset(
+                    'assets/images/characters/halmi_login.png',
+                    width: 150,
+                    height: 150,
+                    fit: BoxFit.contain,
                   ),
-                  const SizedBox(height: 16),
+
+                  const SizedBox(height: 24),
+
                   const Text(
-                    '장바구니가 비어있습니다.\n맛있는 반찬을 담아보세요 👵',
+                    '장바구니가 비어있어요!',
                     style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
+                      fontSize: 19,
                       fontWeight: FontWeight.bold,
+                      color: Color(0xFF244C3A),
                     ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  const Text(
+                    '젊은할미가 정성껏 준비한 반찬들,\n'
+                    '장바구니에 담아보세요.',
                     textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.6,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  SizedBox(
+                    width: 230,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: widget.onViewAllProducts,
+                      icon: const Icon(Icons.storefront_outlined, size: 21),
+                      label: const Text(
+                        '전체 반찬 구경하기',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF244C3A),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1037,14 +1080,12 @@ class _CartScreenState extends State<CartScreen> {
                                             actions: [
                                               TextButton(
                                                 onPressed: () {
+                                                  // 주문 완료 팝업 닫기
                                                   Navigator.pop(context);
-                                                  Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          const OrderListScreen(),
-                                                    ),
-                                                  );
+
+                                                  // 메인 화면의 주문내역 탭으로 이동
+                                                  widget.onOrderCompleted
+                                                      ?.call();
                                                 },
                                                 child: const Text(
                                                   '확인 완료',

@@ -1,5 +1,6 @@
 // lib/screens/main_feed_screen.dart 전체 교체
 import 'package:flutter/material.dart';
+
 // 149-6-5단계: 네트워크 이미지 디스크 캐싱
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -13,7 +14,7 @@ import 'package:http/http.dart' as http;
 import '../services/api_config.dart';
 
 import 'package:halmishop_app/utils/image_url_helper.dart';
-
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:halmishop_app/screens/banchan_detail_screen.dart';
 
 import '../models/banchan_model.dart';
@@ -24,9 +25,9 @@ import 'order_list_screen.dart';
 import 'cart_screen.dart';
 import 'login_screen.dart';
 import 'notice_list_screen.dart';
-import 'admin_notice_screen.dart';
-import 'admin_banner_screen.dart';
-import 'product_register_screen.dart';
+// import 'admin_notice_screen.dart';
+// import 'admin_banner_screen.dart';
+// import 'product_register_screen.dart';
 // 149-2-2-4단계: 관리자센터 화면 연결
 import 'admin_dashboard_screen.dart';
 
@@ -34,12 +35,15 @@ import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'live_product_admin_screen.dart';
-import 'recommended_product_admin_screen.dart';
-import 'today_prepared_admin_screen.dart';
+// import 'live_product_admin_screen.dart';
+// import 'recommended_product_admin_screen.dart';
+// import 'today_prepared_admin_screen.dart';
+import '../notification_service.dart';
 
 class MainFeedScreen extends StatefulWidget {
-  const MainFeedScreen({super.key});
+  final bool openOrderTab;
+
+  const MainFeedScreen({super.key, this.openOrderTab = false});
 
   @override
   State<MainFeedScreen> createState() => _MainFeedScreenState();
@@ -47,6 +51,9 @@ class MainFeedScreen extends StatefulWidget {
 
 class _MainFeedScreenState extends State<MainFeedScreen> {
   bool _isAdmin = false;
+
+  // 150-9-10-23: 백그라운드 FCM 알림 클릭 구독 관리
+  StreamSubscription<RemoteMessage>? _fcmOpenedSubscription;
 
   Future<void> _checkAdminRole() async {
     final prefs = await SharedPreferences.getInstance();
@@ -190,7 +197,7 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
   // 마이페이지는 추후 추가 예정
 
   // 현재 선택된 하단 메뉴
-  int _currentNavigationIndex = _homeTabIndex;
+  late int _currentNavigationIndex;
 
   // 카테고리 종류 정의
   // 148-3-7-4단계: 기타 카테고리 추가
@@ -231,9 +238,179 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
   // 145-35-2단계: 자동 슬라이드 타이머
   Timer? _bannerTimer;
 
+  // 150-9-10-17: 푸시 알림 클릭 시 주문내역 탭으로 이동
+  void _openOrderTabFromNotification() {
+    if (!mounted) return;
+
+    // 150-9-10-24: 처리한 알림 이동 요청 초기화
+    NotificationService.pendingOpenOrderTab = false;
+
+    setState(() {
+      _currentNavigationIndex = _orderTabIndex;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      _orderListKey.currentState?.refreshOrders();
+    });
+
+    debugPrint('🔔 푸시 알림 클릭 → 주문내역 탭 이동');
+  }
+
+  // 151-27단계: 공지사항 상세 팝업 공통 함수
+  void _showNoticeDetail(Map<String, dynamic> notice) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFFF8F4E9),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(
+          notice['title']?.toString() ?? '공지사항',
+          style: const TextStyle(
+            color: Color(0xFF244C3A),
+            fontSize: 19,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: Text(
+            notice['content']?.toString() ?? '',
+            style: const TextStyle(
+              fontSize: 15,
+              height: 1.6,
+              color: Color(0xFF333333),
+            ),
+          ),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+
+              if (!mounted) return;
+
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => NoticeListScreen(notices: _notices),
+                ),
+              );
+            },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF244C3A),
+              side: const BorderSide(color: Color(0xFF244C3A)),
+            ),
+            child: const Text('전체 공지 목록'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text(
+              '닫기',
+              style: TextStyle(
+                color: Color(0xFF244C3A),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 151-34-1단계: 공지사항 알림 중복 처리 방지
+  bool _isOpeningNoticeFromNotification = false;
+
+  // 151-34-1단계: FCM 공지사항 ID로 상세 팝업 열기
+  Future<void> _openNoticeFromNotification(int noticeId) async {
+    if (!mounted || _isOpeningNoticeFromNotification) {
+      debugPrint('⚠️ 공지사항 알림 중복 실행 방지');
+      return;
+    }
+
+    _isOpeningNoticeFromNotification = true;
+
+    try {
+      debugPrint('📢 FCM 공지사항 상세 열기 요청: $noticeId');
+
+      // 최신 공지사항 목록 조회
+      await _fetchNotices();
+
+      if (!mounted) return;
+
+      // 공지사항 ID로 대상 검색
+      Map<String, dynamic>? targetNotice;
+
+      for (final item in _notices) {
+        if (item is! Map) continue;
+
+        final id = int.tryParse(item['id']?.toString() ?? '');
+
+        if (id == noticeId) {
+          targetNotice = Map<String, dynamic>.from(item);
+          break;
+        }
+      }
+
+      if (targetNotice == null) {
+        debugPrint('❌ 공지사항을 찾을 수 없습니다. ID: $noticeId');
+        return;
+      }
+
+      // 처리 완료된 알림 이동 요청 초기화
+      if (NotificationService.pendingNoticeId == noticeId) {
+        NotificationService.pendingNoticeId = null;
+      }
+
+      // 기존 공지사항 상세 팝업 재사용
+      _showNoticeDetail(targetNotice);
+
+      debugPrint('✅ FCM 공지사항 상세 팝업 열기 완료: $noticeId');
+    } catch (e) {
+      debugPrint('❌ 공지사항 알림 이동 오류: $e');
+    } finally {
+      _isOpeningNoticeFromNotification = false;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+
+    // 150-9-10-21: 로컬 알림 클릭 시 주문내역 화면으로 이동
+    NotificationService.onNotificationTap = _openOrderTabFromNotification;
+
+    // 151-30단계: 공지사항 알림 클릭 시 해당 공지 상세 팝업 열기
+    NotificationService.onNoticeTap = _openNoticeFromNotification;
+
+    // 151-25단계: 백그라운드 FCM 알림 종류 구분
+    _fcmOpenedSubscription = FirebaseMessaging.onMessageOpenedApp.listen((
+      RemoteMessage message,
+    ) {
+      debugPrint('🔔 메인 화면에서 FCM 알림 클릭 감지');
+      debugPrint('🔎 FCM 데이터: ${message.data}');
+
+      NotificationService.handleNotificationData(message.data);
+
+      final noticeId = NotificationService.pendingNoticeId;
+
+      if (noticeId != null) {
+        debugPrint('📢 공지사항 알림 클릭: $noticeId');
+
+        if (NotificationService.onNoticeTap != null) {
+          NotificationService.onNoticeTap!(noticeId);
+        }
+      } else {
+        _openOrderTabFromNotification();
+      }
+    });
+
+    // 150-9-10-8: 알림 클릭으로 진입하면 주문내역 탭 선택
+    _currentNavigationIndex = widget.openOrderTab
+        ? _orderTabIndex
+        : _homeTabIndex;
 
     _banchanFuture = _banchanService.fetchBanchanList();
     _checkAdminRole();
@@ -246,6 +423,19 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
 
     // 145-34-4단계: 메인 홈 진입 시 공개 배너 조회
     _fetchBanners();
+
+    // 151-32-1단계: 앱 종료 상태에서 클릭한 공지사항 알림 처리
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final noticeId = NotificationService.pendingNoticeId;
+
+      if (noticeId != null) {
+        debugPrint('📢 앱 종료 상태에서 전달된 공지사항 ID: $noticeId');
+
+        _openNoticeFromNotification(noticeId);
+      }
+    });
   }
 
   // 145-35-4단계: 배너 자동 슬라이드 자원 정리
@@ -253,6 +443,14 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
   void dispose() {
     _bannerTimer?.cancel();
     _bannerPageController.dispose();
+
+    // 150-9-10-23: FCM 알림 클릭 이벤트 구독 취소
+    _fcmOpenedSubscription?.cancel();
+
+    // 150-9-10-21: 메인 화면 종료 시 알림 클릭 콜백 해제
+    NotificationService.onNotificationTap = null;
+    // 151-31-1단계: 메인 화면 종료 시 공지사항 알림 콜백 해제
+    NotificationService.onNoticeTap = null;
 
     super.dispose();
   }
@@ -376,7 +574,16 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
 
         if (shouldExit == true) {
           debugPrint('🚪 할미샵 종료 선택됨');
-          SystemNavigator.pop();
+
+          try {
+            const platform = MethodChannel(
+              'com.example.halmishop_app/app_exit',
+            );
+
+            await platform.invokeMethod('exitApp');
+          } catch (e) {
+            debugPrint('❌ 할미샵 종료 처리 오류: $e');
+          }
         }
       },
       child: Scaffold(
@@ -395,7 +602,7 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                   width: 55,
                   height: 55,
                   child: Image.asset(
-                    'assets/images/splash/halmi_character.png',
+                    'assets/images/characters/halmi_login.png',
                     fit: BoxFit.contain,
                   ),
                 ),
@@ -654,7 +861,21 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
 
                             if (!mounted) return;
 
-                            // 로그인 정보 삭제
+                            // 150-9-8-6: 로그인 정보 삭제 전에 FCM 토큰 연결 해제
+
+                            final fcmUnregistered =
+                                await NotificationService.unregisterToken();
+
+                            if (!fcmUnregistered) {
+                              debugPrint('FCM 토큰 해제 실패: 기기 토큰 삭제를 진행합니다.');
+                            }
+
+                            // 150-9-9-4: 로그아웃 시 Firebase 기기 토큰 삭제
+                            await NotificationService.deleteDeviceToken();
+
+                            if (!mounted) return;
+
+                            // 기존 로그인 정보 삭제
                             await AuthService().logout();
 
                             if (!context.mounted) return;
@@ -689,8 +910,49 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
           children: [
             _buildMarketHomeScreen(), // 0: 홈
             _buildCategoryScreen(), // 1: 카테고리
-            const CartScreen(), // 2: 장바구니
-            OrderListScreen(key: _orderListKey), // 3: 주문내역
+            CartScreen(
+              onOrderCompleted: () {
+                _openOrderTabFromNotification();
+              },
+              onViewAllProducts: () {
+                setState(() {
+                  // 전체 반찬 표시
+                  _selectedCategory = '전체';
+
+                  // LIVE 상품만 보기 해제
+                  _showOnlyLive = false;
+
+                  // 하단 카테고리 메뉴 선택 유지
+                  _categoryReturnIndex = 1;
+
+                  // 상품 목록 화면으로 이동
+                  _currentNavigationIndex = 4;
+                });
+
+                debugPrint('🛒 장바구니 → 전체 반찬 목록 이동');
+              },
+            ), // 2: 장바구니//
+
+            OrderListScreen(
+              key: _orderListKey,
+              onViewAllProducts: () {
+                setState(() {
+                  // 전체 반찬 표시
+                  _selectedCategory = '전체';
+
+                  // LIVE 상품 필터 해제
+                  _showOnlyLive = false;
+
+                  // 하단 카테고리 메뉴 선택
+                  _categoryReturnIndex = 1;
+
+                  // 전체 상품목록으로 이동
+                  _currentNavigationIndex = 4;
+                });
+
+                debugPrint('📦 주문내역 → 전체 반찬 목록 이동');
+              },
+            ), // 3: 주문내역
             // 146-2-6-3단계: 카테고리별 상품 목록
             _buildCategoryProductScreen(),
             // 147-2-4-4단계: 관리자 선택 반찬 전체 목록 (5번 화면)

@@ -14,7 +14,9 @@ import 'dart:typed_data';
 import '../services/api_config.dart';
 
 class OrderListScreen extends StatefulWidget {
-  const OrderListScreen({super.key});
+  final VoidCallback? onViewAllProducts;
+
+  const OrderListScreen({super.key, this.onViewAllProducts});
 
   @override
   State<OrderListScreen> createState() => OrderListScreenState();
@@ -28,11 +30,13 @@ class OrderListScreenState extends State<OrderListScreen> {
 
   final List<String> _orderStatuses = [
     '전체',
-    '주문접수',
+    '입금대기',
+    '입금확인중',
     '입금확인',
     '배송준비',
     '배송중',
     '배송완료',
+    '주문취소',
   ];
 
   @override
@@ -468,10 +472,17 @@ class OrderListScreenState extends State<OrderListScreen> {
         ),
         backgroundColor: const Color(0xFF244C3A),
         actions: [
+          // 150단계: 주문장부 새로고침
+          IconButton(
+            tooltip: '주문목록 새로고침',
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: refreshOrders,
+          ),
+
           if (_isAdmin)
             IconButton(
               tooltip: '오늘의 반찬 집계',
-              icon: const Icon(Icons.summarize),
+              icon: const Icon(Icons.summarize, color: Colors.white),
               onPressed: () {
                 Navigator.push(
                   context,
@@ -481,605 +492,1275 @@ class OrderListScreenState extends State<OrderListScreen> {
                 );
               },
             ),
-
-          if (_isAdmin)
-            PopupMenuButton<String>(
-              tooltip: '주문 상태 필터',
-              icon: const Icon(Icons.filter_list),
-              onSelected: (status) {
-                setState(() {
-                  _selectedStatus = status;
-                });
-              },
-              itemBuilder: (context) => _orderStatuses
-                  .map(
-                    (status) => PopupMenuItem<String>(
-                      value: status,
-                      child: Row(
-                        children: [
-                          if (_selectedStatus == status)
-                            const Icon(Icons.check, size: 18)
-                          else
-                            const SizedBox(width: 18),
-                          const SizedBox(width: 8),
-                          Text(status),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
         ],
       ),
-      body: FutureBuilder<List<dynamic>>(
-        future: _orderFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('장부 로딩 에러: ${snapshot.error}'));
-          }
-          if (snapshot.data == null || snapshot.data!.isEmpty) {
-            return const Center(
-              child: Text(
-                '아직 주문 내역이 없습니더. 👵\n맛있는 반찬을 먼저 주문해 보셔요!',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-            );
-          }
+      body: Column(
+        children: [
+          // 관리자 전용 주문 상태 필터
+          if (_isAdmin)
+            Container(
+              width: double.infinity,
+              color: const Color(0xFFF8F6F0),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: SizedBox(
+                height: 42,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _orderStatuses.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final status = _orderStatuses[index];
+                    final isSelected = _selectedStatus == status;
 
-          final orders = snapshot.data!;
-          final filteredOrders = _selectedStatus == '전체'
-              ? orders
-              : orders
-                    .where(
-                      (order) =>
-                          (order['orderStatus'] ?? '주문접수') == _selectedStatus,
-                    )
-                    .toList();
+                    return ChoiceChip(
+                      label: Text(status),
+                      selected: isSelected,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
 
-          if (filteredOrders.isEmpty) {
-            return Center(
-              child: Text(
-                '선택한 상태의 주문이 없습니다.',
-                style: const TextStyle(fontSize: 15, color: Colors.grey),
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16.0),
-            itemCount: filteredOrders.length,
-            itemBuilder: (context, index) {
-              final order = filteredOrders[index];
-              final int orderId = order['id']; // 삭제를 위한 주문 ID 추출
-
-              return Card(
-                margin: const EdgeInsets.only(bottom: 16.0),
-                color: Colors.white,
-                surfaceTintColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: const BorderSide(color: Color(0xFFE2E8DF), width: 1),
+                      onSelected: (_) {
+                        setState(() {
+                          _selectedStatus = status;
+                        });
+                      },
+                      selectedColor: const Color(0xFF244C3A),
+                      backgroundColor: Colors.white,
+                      labelStyle: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF244C3A),
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
+                      showCheckmark: false,
+                      side: BorderSide(
+                        color: isSelected
+                            ? const Color(0xFF244C3A)
+                            : const Color(0xFFD7DDD5),
+                      ),
+                    );
+                  },
                 ),
-                elevation: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 💡 상단 행: 주문번호 - 주문상태 - 취소버튼(우측 끝 배치)
-                      Row(
-                        children: [
-                          Text(
-                            '주문번호 : #$orderId',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF244C3A),
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(width: 8), // 간격 소폭 추가
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE8F0E7),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              order['orderStatus'] == '주문접수' &&
-                                      order['paymentMethod'] == 'BANK_TRANSFER'
-                                  ? (order['paymentStatus'] == 'NOTIFIED'
-                                        ? '입금확인중'
-                                        : order['paymentStatus'] == 'PAID'
-                                        ? '주문확정'
-                                        : '입금대기')
-                                  : (order['orderStatus'] ?? '주문접수'),
-                              style: const TextStyle(
-                                color: Color(0xFF244C3A),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                          const Spacer(), // 💥 왼쪽 요소들을 밀어내어 버튼을 우측 끝에 고정합니다.
-                          // 💡 새로 추가된 주문 취소 버튼
-                          TextButton.icon(
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.redAccent,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            onPressed: () {
-                              // 실수 방지를 위해 취소 의사를 묻는 다이얼로그 띄우기
-                              showDialog(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('주문 취소하기'),
-                                  content: Text('주문번호 #$orderId 정말 취소하시겠습니까?'),
-                                  actions: [
-                                    TextButton(
-                                      child: const Text('아니오'),
-                                      onPressed: () => Navigator.of(ctx).pop(),
-                                    ),
-                                    TextButton(
-                                      child: const Text(
-                                        '예, 취소해주세요',
-                                        style: TextStyle(
-                                          color: Colors.redAccent,
-                                        ),
-                                      ),
-                                      onPressed: () {
-                                        Navigator.of(ctx).pop();
-                                        _deleteOrder(orderId); // 💥 실제 삭제 함수 실행
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.delete_forever, size: 16),
-                            label: const Text(
-                              '주문취소',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      // 150단계: 고객 입금대기 안내
-                      if (!_isAdmin &&
-                          order['orderStatus'] == '주문접수' &&
-                          order['paymentMethod'] == 'BANK_TRANSFER' &&
-                          order['paymentStatus'] == 'WAITING') ...[
-                        const SizedBox(height: 12),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF8EC),
-                            borderRadius: BorderRadius.circular(10),
-                            border: painting.Border.all(
-                              color: const Color(0xFFF1DFC1),
-                            ),
-                          ),
-                          child: const Text(
-                            '💳 주문이 정상적으로 접수되었습니다.\n'
-                            '안내된 계좌로 입금하신 후 '
-                            '입금했어요 버튼을 눌러주세요.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              height: 1.6,
-                              color: Color(0xFF795622),
-                            ),
-                          ),
-                        ),
-                      ],
+              ),
+            ),
 
-                      const Divider(height: 24),
-
-                      if (order['items'] is List &&
-                          (order['items'] as List).isNotEmpty) ...[
-                        Text(
-                          _isAdmin ? '주문 상품별 수량' : '내 주문 상품',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        // const Text(
-                        //   '주문 상품별 수량',
-                        //   style: TextStyle(
-                        //     fontSize: 18,
-                        //     fontWeight: FontWeight.bold,
-                        //   ),
-                        // ),
-                        const SizedBox(height: 8),
-
-                        ...(order['items'] as List).map((item) {
-                          final productName = item['productName'] ?? '상품명 없음';
-                          final quantity = item['quantity'] ?? 0;
-                          final price = item['price'] ?? 0;
-
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    '$productName (단가 ${price}원)',
-                                    style: const TextStyle(fontSize: 15),
-                                  ),
-                                ),
-                                Text(
-                                  '${quantity}개',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF244C3A),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }),
-                      ] else
-                        Text(
-                          '반찬명: ${order['productName']}',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                      // Text(
-                      //   '반찬명: ${order['productName']}',
-                      //   style: const TextStyle(
-                      //     fontSize: 18,
-                      //     fontWeight: FontWeight.bold,
-                      //   ),
-                      // ),
-                      const SizedBox(height: 10),
-                      Text(
-                        '총 금액: ${order['totalPrice']}원',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Color(0xFF244C3A),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '🚚 배송지: ${order['deliveryAddress']}',
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          // 💡 주문완료 상태일 때만 주소를 고칠 수 있게 버튼 배치
-                          if (_isAdmin || order['orderStatus'] == '주문접수')
-                            TextButton(
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                foregroundColor: const Color(0xFF607568),
-                              ),
-                              onPressed: () => _showAddressDialog(
-                                orderId,
-                                order['deliveryAddress'] ?? '',
-                              ),
-                              child: const Text(
-                                ' [배송지 변경]',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '💰 입금자: ${order['depositorName']}',
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          if (_isAdmin || order['orderStatus'] == '주문접수')
-                            TextButton(
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                foregroundColor: const Color(0xFF607568),
-                              ),
-                              onPressed: () => _showNameDialog(
-                                orderId,
-                                order['depositorName'] ?? '',
-                              ),
-                              child: const Text(
-                                ' [입금자명 변경]',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-
-                      // Text(
-                      //   '🚚 배송지: ${order['deliveryAddress']}',
-                      //   style: const TextStyle(
-                      //     color: Colors.grey,
-                      //     fontSize: 13,
-                      //   ),
-                      // ),
-                      // const SizedBox(height: 2),
-                      // Text(
-                      //   '💰 입금자: ${order['depositorName']}',
-                      //   style: const TextStyle(
-                      //     color: Colors.grey,
-                      //     fontSize: 13,
-                      //   ),
-                      // ),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.calendar_today,
-                            color: Color(0xFF607568),
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              '주문일시: ${(() {
-                                final rawDate = order['orderDate']?.toString() ?? '';
-                                final date = DateTime.tryParse(rawDate);
-
-                                if (date == null) return rawDate;
-
-                                final year = date.year;
-                                final month = date.month.toString().padLeft(2, '0');
-                                final day = date.day.toString().padLeft(2, '0');
-                                final hour = date.hour.toString().padLeft(2, '0');
-                                final minute = date.minute.toString().padLeft(2, '0');
-
-                                return '$year.$month.$day $hour:$minute';
-                              })()}',
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      // 149-7-44-9-22-6단계: 주문 요청사항 표시
-                      if ((order['orderMemo'] ?? '')
-                          .toString()
-                          .trim()
-                          .isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFBF5),
-                            borderRadius: BorderRadius.circular(10),
-                            border: const painting.Border.fromBorderSide(
-                              BorderSide(color: Color(0xFFE2E8DF)),
-                            ),
-                          ),
+          // 기존 주문목록
+          Expanded(
+            child: FutureBuilder<List<dynamic>>(
+              future: _orderFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('장부 로딩 에러: ${snapshot.error}'));
+                }
+                if (snapshot.data == null || snapshot.data!.isEmpty) {
+                  return RefreshIndicator(
+                    color: const Color(0xFF244C3A),
+                    onRefresh: () async {
+                      await refreshOrders();
+                    },
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.65,
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
+                              Image.asset(
+                                'assets/images/characters/halmi_login.png',
+                                width: 150,
+                                height: 150,
+                                fit: BoxFit.contain,
+                              ),
+
+                              const SizedBox(height: 24),
+
                               const Text(
-                                '📝 주문 요청사항',
+                                '아직 주문 내역이 없어요!',
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: 19,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF244C3A),
                                 ),
                               ),
-                              const SizedBox(height: 6),
-                              Text(
-                                order['orderMemo'].toString(),
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF444444),
+
+                              const SizedBox(height: 12),
+
+                              const Text(
+                                '젊은할미가 정성껏 준비한 반찬들,\n'
+                                '지금 구경해 보세요.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  height: 1.6,
+                                  color: Colors.grey,
                                 ),
                               ),
+                              if (!_isAdmin) ...[
+                                const SizedBox(height: 28),
+
+                                SizedBox(
+                                  width: 230,
+                                  height: 48,
+                                  child: ElevatedButton.icon(
+                                    onPressed: widget.onViewAllProducts,
+                                    icon: const Icon(
+                                      Icons.storefront_outlined,
+                                      size: 21,
+                                    ),
+                                    label: const Text(
+                                      '전체 반찬 구경하기',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF244C3A),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
-                        const SizedBox(height: 8),
                       ],
+                    ),
+                  );
+                }
 
-                      // 택배 송장 정보
-                      if (order['trackingNumber'] != null &&
-                          order['trackingNumber'].toString().isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(8),
+                final orders = snapshot.data!;
+
+                final filteredOrders = orders.where((order) {
+                  if (_selectedStatus == '전체') {
+                    return true;
+                  }
+
+                  final orderStatus = order['orderStatus'] ?? '주문접수';
+                  final paymentStatus = order['paymentStatus'] ?? 'WAITING';
+                  final paymentMethod = order['paymentMethod'] ?? '';
+
+                  // 입금대기
+                  if (_selectedStatus == '입금대기') {
+                    return orderStatus == '주문접수' &&
+                        paymentMethod == 'BANK_TRANSFER' &&
+                        paymentStatus == 'WAITING';
+                  }
+
+                  // 입금확인중
+                  if (_selectedStatus == '입금확인중') {
+                    return orderStatus == '주문접수' &&
+                        paymentMethod == 'BANK_TRANSFER' &&
+                        paymentStatus == 'NOTIFIED';
+                  }
+
+                  // 나머지는 주문상태로 구분
+                  return orderStatus == _selectedStatus;
+                }).toList();
+
+                if (filteredOrders.isEmpty) {
+                  return RefreshIndicator(
+                    color: const Color(0xFF244C3A),
+                    onRefresh: () async {
+                      await refreshOrders();
+                    },
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.6,
+                          child: Center(
+                            child: _isAdmin
+                                ? const Text(
+                                    '선택한 상태의 주문이 없습니다.',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Colors.grey,
+                                    ),
+                                  )
+                                : Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Image.asset(
+                                        'assets/images/characters/halmi_login.png',
+                                        width: 150,
+                                        height: 150,
+                                        fit: BoxFit.contain,
+                                      ),
+
+                                      const SizedBox(height: 24),
+
+                                      const Text(
+                                        '해당하는 주문 내역이 없어요!',
+                                        style: TextStyle(
+                                          fontSize: 19,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF244C3A),
+                                        ),
+                                      ),
+
+                                      const SizedBox(height: 12),
+
+                                      const Text(
+                                        '젊은할미가 정성껏 준비한 반찬들,\n'
+                                        '지금 구경해 보세요.',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          height: 1.6,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+
+                                      const SizedBox(height: 28),
+
+                                      SizedBox(
+                                        width: 230,
+                                        height: 48,
+                                        child: ElevatedButton.icon(
+                                          onPressed: widget.onViewAllProducts,
+                                          icon: const Icon(
+                                            Icons.storefront_outlined,
+                                            size: 21,
+                                          ),
+                                          label: const Text(
+                                            '전체 반찬 구경하기',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(
+                                              0xFF244C3A,
+                                            ),
+                                            foregroundColor: Colors.white,
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                           ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return RefreshIndicator(
+                  color: const Color(0xFF244C3A),
+                  onRefresh: () async {
+                    await refreshOrders();
+                  },
+                  child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16.0),
+                    itemCount: filteredOrders.length,
+
+                    itemBuilder: (context, index) {
+                      final order = filteredOrders[index];
+                      final int orderId = order['id']; // 삭제를 위한 주문 ID 추출
+
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 16.0),
+                        color: Colors.white,
+                        surfaceTintColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(
+                            color: Color(0xFFE2E8DF),
+                            width: 1,
+                          ),
+                        ),
+                        elevation: 2,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // 💡 상단 행: 주문번호 - 주문상태 - 취소버튼(우측 끝 배치)
+                              Row(
+                                children: [
+                                  Text(
+                                    '주문번호 : #$orderId',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF244C3A),
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8), // 간격 소폭 추가
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE8F0E7),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      order['orderStatus'] == '주문접수' &&
+                                              order['paymentMethod'] ==
+                                                  'BANK_TRANSFER'
+                                          ? (order['paymentStatus'] ==
+                                                    'NOTIFIED'
+                                                ? '입금확인중'
+                                                : order['paymentStatus'] ==
+                                                      'PAID'
+                                                ? '주문확정'
+                                                : '입금대기')
+                                          : (order['orderStatus'] ?? '주문접수'),
+                                      style: const TextStyle(
+                                        color: Color(0xFF244C3A),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  const Spacer(), // 💥 왼쪽 요소들을 밀어내어 버튼을 우측 끝에 고정합니다.
+                                  // 💡 새로 추가된 주문 취소 버튼
+                                  // 150단계: 입금대기 중인 고객 주문만 직접 취소 가능
+                                  if (!_isAdmin &&
+                                      order['orderStatus'] == '주문접수' &&
+                                      order['paymentStatus'] == 'WAITING')
+                                    TextButton.icon(
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: Colors.redAccent,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      onPressed: () {
+                                        // 실수 방지를 위해 취소 의사를 묻는 다이얼로그 띄우기
+                                        showDialog(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: const Text('주문 취소하기'),
+                                            content: Text(
+                                              '주문번호 #$orderId 정말 취소하시겠습니까?',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                child: const Text('아니오'),
+                                                onPressed: () =>
+                                                    Navigator.of(ctx).pop(),
+                                              ),
+                                              TextButton(
+                                                child: const Text(
+                                                  '예, 취소해주세요',
+                                                  style: TextStyle(
+                                                    color: Colors.redAccent,
+                                                  ),
+                                                ),
+                                                onPressed: () {
+                                                  Navigator.of(ctx).pop();
+                                                  _deleteOrder(
+                                                    orderId,
+                                                  ); // 💥 실제 삭제 함수 실행
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(
+                                        Icons.delete_forever,
+                                        size: 16,
+                                      ),
+                                      label: const Text(
+                                        '주문취소',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+
+                              // 150단계: 고객 입금대기 안내
+                              if (!_isAdmin &&
+                                  order['orderStatus'] == '주문접수' &&
+                                  order['paymentMethod'] == 'BANK_TRANSFER' &&
+                                  order['paymentStatus'] == 'WAITING') ...[
+                                const SizedBox(height: 12),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF8EC),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: painting.Border.all(
+                                      color: const Color(0xFFF1DFC1),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    '💳 주문이 정상적으로 접수되었습니다.\n'
+                                    '안내된 계좌로 입금하신 후 '
+                                    '입금했어요 버튼을 눌러주세요.',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      height: 1.6,
+                                      color: Color(0xFF795622),
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 10),
+
+                                // 150단계: 고객 입금완료 알림 버튼
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () async {
+                                      final confirmed = await showDialog<bool>(
+                                        context: context,
+                                        builder: (dialogContext) => AlertDialog(
+                                          title: const Text('입금확인 요청'),
+                                          content: const Text(
+                                            '안내된 계좌로 실제 입금을 완료하셨나요?\n\n'
+                                            '확인을 누르면 사장님께 입금확인 요청이 전달됩니다.\n'
+                                            '실제 입금 여부는 사장님이 확인한 후 처리됩니다.',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.pop(
+                                                  dialogContext,
+                                                  false,
+                                                );
+                                              },
+                                              child: const Text('취소'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.pop(
+                                                  dialogContext,
+                                                  true,
+                                                );
+                                              },
+                                              child: const Text(
+                                                '입금했어요',
+                                                style: TextStyle(
+                                                  color: Color(0xFF244C3A),
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+
+                                      if (confirmed != true) {
+                                        return;
+                                      }
+
+                                      // 150단계: 입금알림 서버 전송
+                                      try {
+                                        final prefs =
+                                            await SharedPreferences.getInstance();
+                                        final token = prefs.getString(
+                                          'jwt_token',
+                                        );
+
+                                        if (token == null || token.isEmpty) {
+                                          if (!context.mounted) return;
+
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                '로그인 정보가 없습니다. 다시 로그인해 주세요.',
+                                              ),
+                                            ),
+                                          );
+                                          return;
+                                        }
+
+                                        final response = await http
+                                            .patch(
+                                              Uri.parse(
+                                                '$baseUrl/$orderId/payment-notify',
+                                              ),
+                                              headers: {
+                                                'Authorization':
+                                                    'Bearer $token',
+                                                'Content-Type':
+                                                    'application/json',
+                                              },
+                                            )
+                                            .timeout(
+                                              const Duration(seconds: 15),
+                                            );
+
+                                        if (!context.mounted) return;
+
+                                        if (response.statusCode == 200) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    '입금확인 요청이 정상적으로 접수되었습니다.',
+                                                  ),
+                                                ),
+                                              );
+
+                                          // 150단계: 입금알림 성공 후 주문장부 새로고침
+                                          await refreshOrders();
+                                        } else {
+                                          final errorBody = jsonDecode(
+                                            utf8.decode(response.bodyBytes),
+                                          );
+
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    errorBody['message'] ??
+                                                        '입금확인 요청에 실패했습니다.',
+                                                  ),
+                                                ),
+                                              );
+                                        }
+                                      } catch (e) {
+                                        if (!context.mounted) return;
+
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    icon: const Icon(
+                                      Icons.check_circle_outline,
+                                      size: 20,
+                                    ),
+                                    label: const Text('입금했어요'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF244C3A),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+
+                              // 150단계: 관리자 입금확인 요청 안내
+                              if (_isAdmin &&
+                                  order['paymentMethod'] == 'BANK_TRANSFER' &&
+                                  order['paymentStatus'] == 'NOTIFIED') ...[
+                                const SizedBox(height: 12),
+
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF8EC),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: painting.Border.all(
+                                      color: const Color(0xFFF1DFC1),
+                                    ),
+                                  ),
+                                  child: const Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.notifications_active_outlined,
+                                            color: Color(0xFF795622),
+                                            size: 20,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              '입금확인 요청이 도착했습니다!',
+                                              style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF795622),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: 8),
+                                      Text(
+                                        '고객이 입금완료를 알렸습니다.\n'
+                                        '실제 계좌 입금내역을 확인한 후 '
+                                        '입금확정 처리를 진행해 주세요.',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          height: 1.6,
+                                          color: Color(0xFF795622),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                const SizedBox(height: 10),
+
+                                // 150단계: 관리자 입금확정 버튼
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () async {
+                                      final confirmed = await showDialog<bool>(
+                                        context: context,
+                                        builder: (dialogContext) => AlertDialog(
+                                          title: const Text('입금확정 처리'),
+                                          content: Text(
+                                            '주문번호: #$orderId\n'
+                                            '입금자명: ${order['depositorName'] ?? '정보 없음'}\n'
+                                            '주문금액: ${order['totalPrice'] ?? 0}원\n\n'
+                                            '실제 은행 계좌에서 입금자명과 금액을 확인하셨나요?\n\n'
+                                            '확정하면 결제상태가 PAID로 변경되고 '
+                                            '주문상태가 입금확인으로 변경됩니다.',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.pop(
+                                                  dialogContext,
+                                                  false,
+                                                );
+                                              },
+                                              child: const Text('취소'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.pop(
+                                                  dialogContext,
+                                                  true,
+                                                );
+                                              },
+                                              child: const Text(
+                                                '입금확정',
+                                                style: TextStyle(
+                                                  color: Color(0xFF244C3A),
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+
+                                      if (confirmed != true) {
+                                        return;
+                                      }
+
+                                      // 150단계: 관리자 입금확정 서버 전송
+                                      try {
+                                        final prefs =
+                                            await SharedPreferences.getInstance();
+                                        final token = prefs.getString(
+                                          'jwt_token',
+                                        );
+
+                                        if (token == null || token.isEmpty) {
+                                          if (!context.mounted) return;
+
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                '로그인 정보가 없습니다. 다시 로그인해 주세요.',
+                                              ),
+                                            ),
+                                          );
+                                          return;
+                                        }
+
+                                        final response = await http
+                                            .patch(
+                                              Uri.parse(
+                                                '$baseUrl/$orderId/payment-confirm',
+                                              ),
+                                              headers: {
+                                                'Authorization':
+                                                    'Bearer $token',
+                                                'Content-Type':
+                                                    'application/json',
+                                              },
+                                            )
+                                            .timeout(
+                                              const Duration(seconds: 15),
+                                            );
+
+                                        if (!context.mounted) return;
+
+                                        if (response.statusCode == 200) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    '입금확정 처리가 완료되었습니다.',
+                                                  ),
+                                                ),
+                                              );
+
+                                          // 입금확정 후 주문장부 자동 새로고침
+                                          await refreshOrders();
+                                        } else {
+                                          String message = '입금확정 처리에 실패했습니다.';
+
+                                          try {
+                                            final errorBody = jsonDecode(
+                                              utf8.decode(response.bodyBytes),
+                                            );
+
+                                            if (errorBody is Map &&
+                                                errorBody['message'] != null) {
+                                              message = errorBody['message']
+                                                  .toString();
+                                            }
+                                          } catch (_) {
+                                            // 서버 응답이 JSON이 아니어도 기본 오류 메시지 표시
+                                          }
+
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(content: Text(message)),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (!context.mounted) return;
+
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    icon: const Icon(
+                                      Icons.verified_outlined,
+                                      size: 20,
+                                    ),
+                                    label: const Text('입금확정 처리'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF244C3A),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+
+                              const Divider(height: 24),
+
+                              if (order['items'] is List &&
+                                  (order['items'] as List).isNotEmpty) ...[
+                                Text(
+                                  _isAdmin ? '주문 상품별 수량' : '내 주문 상품',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                // const Text(
+                                //   '주문 상품별 수량',
+                                //   style: TextStyle(
+                                //     fontSize: 18,
+                                //     fontWeight: FontWeight.bold,
+                                //   ),
+                                // ),
+                                const SizedBox(height: 8),
+
+                                ...(order['items'] as List).map((item) {
+                                  final productName =
+                                      item['productName'] ?? '상품명 없음';
+                                  final quantity = item['quantity'] ?? 0;
+                                  final price = item['price'] ?? 0;
+
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 4,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            '$productName (단가 ${price}원)',
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          '${quantity}개',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF244C3A),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                              ] else
+                                Text(
+                                  '반찬명: ${order['productName']}',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+
+                              // Text(
+                              //   '반찬명: ${order['productName']}',
+                              //   style: const TextStyle(
+                              //     fontSize: 18,
+                              //     fontWeight: FontWeight.bold,
+                              //   ),
+                              // ),
+                              const SizedBox(height: 10),
                               Text(
-                                '📦 택배사: ${order['courier'] ?? '-'}',
+                                '총 금액: ${order['totalPrice']}원',
                                 style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Color(0xFF244C3A),
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 14,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '🚚 배송지: ${order['deliveryAddress']}',
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                  // 💡 주문완료 상태일 때만 주소를 고칠 수 있게 버튼 배치
+                                  // 배송준비 전까지 배송지 변경 가능
+                                  if (order['orderStatus'] == '주문접수' ||
+                                      order['orderStatus'] == '입금확인')
+                                    TextButton(
+                                      style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        foregroundColor: const Color(
+                                          0xFF607568,
+                                        ),
+                                      ),
+                                      onPressed: () => _showAddressDialog(
+                                        orderId,
+                                        order['deliveryAddress'] ?? '',
+                                      ),
+                                      child: const Text(
+                                        ' [배송지 변경]',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
 
                               Row(
                                 children: [
                                   Expanded(
-                                    child: SelectableText(
-                                      '송장번호: ${order['trackingNumber']}',
-                                      style: const TextStyle(fontSize: 14),
+                                    child: Text(
+                                      '💰 입금자: ${order['depositorName']}',
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 입금대기 상태에서만 입금자명 변경 가능
+                                  if (order['orderStatus'] == '주문접수' &&
+                                      order['paymentMethod'] ==
+                                          'BANK_TRANSFER' &&
+                                      order['paymentStatus'] == 'WAITING')
+                                    TextButton(
+                                      style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        foregroundColor: const Color(
+                                          0xFF607568,
+                                        ),
+                                      ),
+                                      onPressed: () => _showNameDialog(
+                                        orderId,
+                                        order['depositorName'] ?? '',
+                                      ),
+                                      child: const Text(
+                                        ' [입금자명 변경]',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+
+                              // Text(
+                              //   '🚚 배송지: ${order['deliveryAddress']}',
+                              //   style: const TextStyle(
+                              //     color: Colors.grey,
+                              //     fontSize: 13,
+                              //   ),
+                              // ),
+                              // const SizedBox(height: 2),
+                              // Text(
+                              //   '💰 입금자: ${order['depositorName']}',
+                              //   style: const TextStyle(
+                              //     color: Colors.grey,
+                              //     fontSize: 13,
+                              //   ),
+                              // ),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.calendar_today,
+                                    color: Color(0xFF607568),
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      '주문일시: ${(() {
+                                        final rawDate = order['orderDate']?.toString() ?? '';
+                                        final date = DateTime.tryParse(rawDate);
+
+                                        if (date == null) return rawDate;
+
+                                        final year = date.year;
+                                        final month = date.month.toString().padLeft(2, '0');
+                                        final day = date.day.toString().padLeft(2, '0');
+                                        final hour = date.hour.toString().padLeft(2, '0');
+                                        final minute = date.minute.toString().padLeft(2, '0');
+
+                                        return '$year.$month.$day $hour:$minute';
+                                      })()}',
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
 
-                              const SizedBox(height: 12),
-
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: () => _openTracking(
-                                    order['courier']?.toString() ?? '',
-                                    order['trackingNumber']?.toString() ?? '',
+                              // 149-7-44-9-22-6단계: 주문 요청사항 표시
+                              if ((order['orderMemo'] ?? '')
+                                  .toString()
+                                  .trim()
+                                  .isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFFBF5),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border:
+                                        const painting.Border.fromBorderSide(
+                                          BorderSide(color: Color(0xFFE2E8DF)),
+                                        ),
                                   ),
-                                  icon: const Icon(Icons.local_shipping),
-                                  label: const Text('배송조회 바로가기'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue.shade600,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        '📝 주문 요청사항',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF244C3A),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        order['orderMemo'].toString(),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF444444),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+
+                              // 택배 송장 정보
+                              if (order['trackingNumber'] != null &&
+                                  order['trackingNumber']
+                                      .toString()
+                                      .isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '📦 택배사: ${order['courier'] ?? '-'}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: SelectableText(
+                                              '송장번호: ${order['trackingNumber']}',
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+
+                                      const SizedBox(height: 12),
+
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: ElevatedButton.icon(
+                                          onPressed: () => _openTracking(
+                                            order['courier']?.toString() ?? '',
+                                            order['trackingNumber']
+                                                    ?.toString() ??
+                                                '',
+                                          ),
+                                          icon: const Icon(
+                                            Icons.local_shipping,
+                                          ),
+                                          label: const Text('배송조회 바로가기'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                Colors.blue.shade600,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+
+                              if (_isAdmin) ...[
+                                const SizedBox(height: 10),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blueGrey.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '👤 고객명: ${order['memberName'] ?? '-'}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '📞 연락처: ${order['memberPhoneNumber'] ?? '-'}',
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+
+                              if (_isAdmin) ...[
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    onPressed: () {
+                                      _showTrackingDialog(
+                                        orderId,
+                                        order['courier'] ?? '',
+                                        order['trackingNumber'] ?? '',
+                                      );
+                                    },
+                                    icon: const Icon(Icons.local_shipping),
+                                    label: Text(
+                                      order['trackingNumber'] == null ||
+                                              order['trackingNumber']
+                                                  .toString()
+                                                  .isEmpty
+                                          ? '송장 등록'
+                                          : '송장 수정',
                                     ),
                                   ),
                                 ),
+                              ],
+
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  // 150단계: 입금확인 후 배송준비 처리
+                                  if (_isAdmin &&
+                                      order['orderStatus'] == '입금확인' &&
+                                      order['paymentStatus'] == 'PAID')
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xFF244C3A,
+                                        ),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                      ),
+                                      onPressed: () =>
+                                          _updateStatus(orderId, '배송준비'),
+                                      icon: const Icon(
+                                        Icons.inventory_2_outlined,
+                                        size: 16,
+                                      ),
+                                      label: const Text(
+                                        '배송준비',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+
+                                  // 배송준비 완료 후 배송 시작
+                                  if (_isAdmin &&
+                                      order['orderStatus'] == '배송준비' &&
+                                      order['paymentStatus'] == 'PAID')
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blue.shade400,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                      ),
+                                      onPressed: () =>
+                                          _updateStatus(orderId, '배송중'),
+                                      icon: const Icon(
+                                        Icons.local_shipping,
+                                        size: 16,
+                                      ),
+                                      label: const Text(
+                                        '배송 시작',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+
+                                  // 배송중 상태에서 배송완료 처리
+                                  if (_isAdmin &&
+                                      order['orderStatus'] == '배송중' &&
+                                      order['paymentStatus'] == 'PAID')
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green.shade400,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                      ),
+                                      onPressed: () =>
+                                          _updateStatus(orderId, '배송완료'),
+                                      icon: const Icon(
+                                        Icons.done_all,
+                                        size: 16,
+                                      ),
+                                      label: const Text(
+                                        '배송 완료',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ],
                           ),
                         ),
-                      ],
-
-                      if (_isAdmin) ...[
-                        const SizedBox(height: 10),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.blueGrey.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '👤 고객명: ${order['memberName'] ?? '-'}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '📞 연락처: ${order['memberPhoneNumber'] ?? '-'}',
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-
-                      if (_isAdmin) ...[
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              _showTrackingDialog(
-                                orderId,
-                                order['courier'] ?? '',
-                                order['trackingNumber'] ?? '',
-                              );
-                            },
-                            icon: const Icon(Icons.local_shipping),
-                            label: Text(
-                              order['trackingNumber'] == null ||
-                                      order['trackingNumber'].toString().isEmpty
-                                  ? '송장 등록'
-                                  : '송장 수정',
-                            ),
-                          ),
-                        ),
-                      ],
-
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          // 1. 배송 시작 버튼 (현재 상태가 '주문완료'일 때만 보이거나 활성화)
-                          if (_isAdmin &&
-                              (order['orderStatus'] == '주문접수' ||
-                                  order['orderStatus'] == '입금확인' ||
-                                  order['orderStatus'] == '배송준비'))
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue.shade400,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                              ),
-                              onPressed: () => _updateStatus(orderId, '배송중'),
-                              icon: const Icon(Icons.local_shipping, size: 16),
-                              label: const Text(
-                                '배송 시작',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ),
-
-                          if (_isAdmin && order['orderStatus'] == '배송중')
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green.shade400,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                              ),
-                              onPressed: () => _updateStatus(orderId, '배송완료'),
-                              icon: const Icon(Icons.done_all, size: 16),
-                              label: const Text(
-                                '배송 완료',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
+                      );
+                    },
                   ),
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

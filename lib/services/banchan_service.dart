@@ -68,7 +68,10 @@ class BanchanService {
     }
   }
 
-  Future<String?> uploadProductImage(XFile imageFile) async {
+  Future<String?> uploadProductImage(
+    XFile imageFile, {
+    required int productId,
+  }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
@@ -78,7 +81,8 @@ class BanchanService {
         return null;
       }
 
-      final uri = Uri.parse('$baseUrl/upload-image');
+      // 152-5-3단계: 상품 ID별 대표사진 업로드
+      final uri = Uri.parse('$baseUrl/$productId/upload-image');
 
       final request = http.MultipartRequest('POST', uri);
 

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'main_feed_screen.dart';
+import '../notification_service.dart';
 
 import 'package:provider/provider.dart';
 
@@ -61,9 +62,19 @@ class _AutoLoginScreenState extends State<AutoLoginScreen>
     debugPrint('자동 로그인 저장 정보 확인: $hasLogin');
 
     if (!hasLogin) {
+      // 150-9-10-15: 푸시 알림 클릭으로 실행했는지 확인
+      final bool openOrderTab = NotificationService.pendingOpenOrderTab;
+
+      debugPrint('🔍 150-9-10-28 자동 로그인 후 주문내역 이동 여부: $openOrderTab');
+
+      // 이동 요청을 사용했으므로 초기화
+      NotificationService.pendingOpenOrderTab = false;
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        MaterialPageRoute(
+          builder: (context) => MainFeedScreen(openOrderTab: openOrderTab),
+        ),
       );
       return;
     }
@@ -100,9 +111,19 @@ class _AutoLoginScreenState extends State<AutoLoginScreen>
         return;
       }
 
+      // 150-9-10-31: 푸시 알림 클릭 여부 확인
+      final bool openOrderTab = NotificationService.pendingOpenOrderTab;
+
+      debugPrint('🔍 자동 로그인 후 주문내역 이동 여부: $openOrderTab');
+
+      // 알림 이동 요청 초기화
+      NotificationService.pendingOpenOrderTab = false;
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const MainFeedScreen()),
+        MaterialPageRoute(
+          builder: (context) => MainFeedScreen(openOrderTab: openOrderTab),
+        ),
       );
       return;
     }
