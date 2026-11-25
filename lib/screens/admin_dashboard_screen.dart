@@ -8,6 +8,7 @@ import 'today_prepared_admin_screen.dart';
 import 'admin_notice_screen.dart';
 import 'admin_banner_screen.dart';
 import 'product_manage_screen.dart';
+import 'admin_product_bulk_upload_screen.dart';
 
 // 149-2-1단계: 젊은할미 관리자센터 메인 화면
 class AdminDashboardScreen extends StatelessWidget {
@@ -64,24 +65,35 @@ class AdminDashboardScreen extends StatelessWidget {
               title: '상품 등록',
               subtitle: '새로운 반찬 상품 등록',
             ),
+
+            _buildMenuTile(
+              context: context,
+              icon: Icons.upload_file_outlined,
+              title: '상품 일괄등록',
+              subtitle: '엑셀 상품정보 및 ZIP 상품사진 일괄등록',
+            ),
+
             _buildMenuTile(
               context: context,
               icon: Icons.inventory_2_outlined,
               title: '상품 수정·관리',
               subtitle: '등록된 상품 정보 및 이미지 관리',
             ),
+
             _buildMenuTile(
               context: context,
               icon: Icons.live_tv_outlined,
               title: '라이브 상품 관리',
               subtitle: '라이브 방송 상품 선택',
             ),
+
             _buildMenuTile(
               context: context,
               icon: Icons.star_outline,
               title: '추천 반찬 관리',
               subtitle: '홈 화면 추천 상품 설정',
             ),
+
             _buildMenuTile(
               context: context,
               icon: Icons.restaurant_menu_outlined,
@@ -141,6 +153,13 @@ class AdminDashboardScreen extends StatelessWidget {
               context,
               MaterialPageRoute(
                 builder: (context) => const ProductRegisterScreen(),
+              ),
+            );
+          } else if (title == '상품 일괄등록') {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AdminProductBulkUploadScreen(),
               ),
             );
           } else if (title == '상품 수정·관리') {

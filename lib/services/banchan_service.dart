@@ -21,7 +21,17 @@ class BanchanService {
     required int price,
     required String category,
     String? description,
-    String? imageUrl, // 148-3-17-14: 상품 대표사진 주소
+    String? imageUrl,
+
+    // 153-3-4-2단계: 상품별 식품 표시정보
+    String? originInfo,
+    String? shelfLife,
+    String? storageMethod,
+    String? allergenInfo,
+    String? foodType,
+    String? netWeight,
+    String? ingredients,
+    String? manufacturer,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -45,6 +55,16 @@ class BanchanService {
               'category': category,
               'description': description,
               'imageUrl': imageUrl,
+
+              // 153-3-4-2단계: 식품 표시정보 전송
+              'originInfo': originInfo,
+              'shelfLife': shelfLife,
+              'storageMethod': storageMethod,
+              'allergenInfo': allergenInfo,
+              'foodType': foodType,
+              'netWeight': netWeight,
+              'ingredients': ingredients,
+              'manufacturer': manufacturer,
             }),
           )
           .timeout(const Duration(seconds: 15));
@@ -138,6 +158,9 @@ class BanchanService {
     }
   }
 
+  // 153-8-6-4단계: 상품 수정 실패 메시지 저장
+  String? lastUpdateProductError;
+
   // 149-3-26단계: 관리자 상품 기본 정보 수정 API
   Future<bool> updateProduct({
     required int productId,
@@ -146,12 +169,27 @@ class BanchanService {
     required String category,
     required String description,
     required String imageUrl,
+    // 153-4-11단계: 식품 표시정보 수정
+    String? originInfo,
+    String? shelfLife,
+    String? storageMethod,
+    String? allergenInfo,
+    String? foodType,
+    String? netWeight,
+    String? ingredients,
+    String? manufacturer,
+    // 153-8-6-2단계: ZIP 일괄등록용 사진폴더명
+    String? imageFolderName,
   }) async {
+    // 153-8-6-5단계: 이전 상품 수정 오류 초기화
+    lastUpdateProductError = null;
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('jwt_token');
 
       if (token == null || token.isEmpty) {
+        lastUpdateProductError = '로그인 정보가 없습니다. 다시 로그인해 주세요.';
         debugPrint('상품 수정 실패: 로그인 정보 없음');
         return false;
       }
@@ -169,6 +207,19 @@ class BanchanService {
               'category': category,
               'description': description,
               'imageUrl': imageUrl,
+
+              // 153-4-11단계: 식품 표시정보 8개 전송
+              if (originInfo != null) 'originInfo': originInfo,
+              if (shelfLife != null) 'shelfLife': shelfLife,
+              if (storageMethod != null) 'storageMethod': storageMethod,
+              if (allergenInfo != null) 'allergenInfo': allergenInfo,
+              if (foodType != null) 'foodType': foodType,
+              if (netWeight != null) 'netWeight': netWeight,
+              if (ingredients != null) 'ingredients': ingredients,
+              if (manufacturer != null) 'manufacturer': manufacturer,
+
+              // 153-8-6-2단계: 사진폴더명 서버 전송
+              if (imageFolderName != null) 'imageFolderName': imageFolderName,
             }),
           )
           .timeout(const Duration(seconds: 15));
@@ -178,12 +229,31 @@ class BanchanService {
         return true;
       }
 
-      debugPrint(
-        '상품 수정 실패 (${response.statusCode}): '
-        '${utf8.decode(response.bodyBytes)}',
-      );
+      // 153-8-6-5단계: 서버 오류 메시지 추출
+      final responseBody = utf8.decode(response.bodyBytes);
+
+      lastUpdateProductError = '상품 수정에 실패했습니다. 다시 시도해 주세요.';
+
+      try {
+        final errorData = jsonDecode(responseBody);
+
+        if (errorData is Map<String, dynamic>) {
+          final message = errorData['message']?.toString().trim();
+
+          if (message != null && message.isNotEmpty) {
+            lastUpdateProductError = message;
+          }
+        }
+      } catch (_) {
+        // JSON 형식이 아닌 응답은 기본 오류 메시지 유지
+      }
+
+      debugPrint('상품 수정 실패 (${response.statusCode}): $responseBody');
+
       return false;
     } catch (e) {
+      lastUpdateProductError = '서버 연결에 실패했습니다. 다시 시도해 주세요.';
+
       debugPrint('상품 수정 통신 오류: $e');
       return false;
     }

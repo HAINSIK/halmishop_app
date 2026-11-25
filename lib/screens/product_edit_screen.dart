@@ -23,6 +23,18 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _priceController;
   late final TextEditingController _descriptionController;
+  // 153-4-6단계: 상품별 식품 표시정보 수정 컨트롤러
+  late final TextEditingController _originInfoController;
+  late final TextEditingController _shelfLifeController;
+  late final TextEditingController _storageMethodController;
+  late final TextEditingController _allergenInfoController;
+  late final TextEditingController _foodTypeController;
+  late final TextEditingController _netWeightController;
+  late final TextEditingController _ingredientsController;
+  late final TextEditingController _manufacturerController;
+
+  // 153-8-5-2단계: ZIP 일괄등록용 사진폴더명 컨트롤러
+  late final TextEditingController _imageFolderNameController;
 
   late String _selectedCategory;
   // 149-3-27단계: 상품 수정 저장 상태
@@ -61,6 +73,41 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
     _descriptionController = TextEditingController(
       text: widget.product.description,
     );
+    // 153-4-7단계: 기존 상품의 식품 표시정보 자동 불러오기
+    _originInfoController = TextEditingController(
+      text: widget.product.originInfo,
+    );
+
+    _shelfLifeController = TextEditingController(
+      text: widget.product.shelfLife,
+    );
+
+    _storageMethodController = TextEditingController(
+      text: widget.product.storageMethod,
+    );
+
+    _allergenInfoController = TextEditingController(
+      text: widget.product.allergenInfo,
+    );
+
+    _foodTypeController = TextEditingController(text: widget.product.foodType);
+
+    _netWeightController = TextEditingController(
+      text: widget.product.netWeight,
+    );
+
+    _ingredientsController = TextEditingController(
+      text: widget.product.ingredients,
+    );
+
+    _manufacturerController = TextEditingController(
+      text: widget.product.manufacturer,
+    );
+
+    // 153-8-5-3단계: 기존 사진폴더명 자동 불러오기
+    _imageFolderNameController = TextEditingController(
+      text: widget.product.imageFolderName,
+    );
 
     _selectedCategory = widget.product.category;
 
@@ -76,6 +123,20 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
     _nameController.dispose();
     _priceController.dispose();
     _descriptionController.dispose();
+
+    // 153-4-8단계: 식품 표시정보 컨트롤러 정리
+    _originInfoController.dispose();
+    _shelfLifeController.dispose();
+    _storageMethodController.dispose();
+    _allergenInfoController.dispose();
+    _foodTypeController.dispose();
+    _netWeightController.dispose();
+    _ingredientsController.dispose();
+    _manufacturerController.dispose();
+
+    // 153-8-5-4단계: 사진폴더명 컨트롤러 메모리 해제
+    _imageFolderNameController.dispose();
+
     super.dispose();
   }
 
@@ -322,7 +383,7 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
       imageUrl = uploadedUrl;
     }
 
-    // 상품 정보와 대표사진 주소를 함께 저장
+    // 153-4-12단계: 상품 기본정보 + 식품 표시정보 저장
     final success = await banchanService.updateProduct(
       productId: widget.product.id,
       name: name,
@@ -330,6 +391,19 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
       category: _selectedCategory,
       description: description,
       imageUrl: imageUrl,
+
+      // 식품 표시정보 8개
+      originInfo: _originInfoController.text.trim(),
+      shelfLife: _shelfLifeController.text.trim(),
+      storageMethod: _storageMethodController.text.trim(),
+      allergenInfo: _allergenInfoController.text.trim(),
+      foodType: _foodTypeController.text.trim(),
+      netWeight: _netWeightController.text.trim(),
+      ingredients: _ingredientsController.text.trim(),
+      manufacturer: _manufacturerController.text.trim(),
+
+      // 153-8-6-3단계: 사진폴더명 수정 요청
+      imageFolderName: _imageFolderNameController.text.trim(),
     );
 
     if (!mounted) return;
@@ -370,8 +444,15 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
       Navigator.pop(context, true);
       return;
     } else {
+      // 153-8-6-6단계: 서버 상품 수정 오류 메시지 표시
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('상품 수정에 실패했습니다. 다시 시도해 주세요.')),
+        SnackBar(
+          content: Text(
+            banchanService.lastUpdateProductError ??
+                '상품 수정에 실패했습니다. 다시 시도해 주세요.',
+          ),
+          backgroundColor: Colors.red,
+        ),
       );
     }
     if (mounted) {
@@ -859,6 +940,131 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
                 },
               ),
 
+              const SizedBox(height: 24),
+
+              // 153-8-5-5단계: ZIP 사진 일괄등록 설정
+              const Text(
+                'ZIP 사진 일괄등록 설정',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F4D3A),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _imageFolderNameController,
+                enabled: !_isSaving,
+                decoration: const InputDecoration(
+                  labelText: '사진폴더명 (선택사항)',
+                  hintText: '예: 배추김치',
+                  prefixIcon: Icon(Icons.folder_outlined),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              const Text(
+                '※ 상품 폴더를 압축할 경우 ZIP 내부의 상품 폴더명과 동일하게 입력해 주세요.\n'
+                '※ 사진만 압축할 경우 ZIP 파일명(.zip 제외)과 동일하게 입력해 주세요.\n'
+                '※ 사진폴더명을 변경해도 기존 등록 사진은 유지됩니다.',
+
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.black54,
+                  height: 1.5,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // 153-4-9단계: 식품 표시정보 수정 입력창
+              const Text(
+                '식품 표시정보',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F4D3A),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _foodTypeController,
+                decoration: const InputDecoration(
+                  labelText: '식품유형',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _netWeightController,
+                decoration: const InputDecoration(
+                  labelText: '내용량',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _ingredientsController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: '원재료명 및 함량',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _originInfoController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: '원산지 정보',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _shelfLifeController,
+                decoration: const InputDecoration(
+                  labelText: '소비기한',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _storageMethodController,
+                decoration: const InputDecoration(
+                  labelText: '보관방법',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _allergenInfoController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: '알레르기 정보',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _manufacturerController,
+                decoration: const InputDecoration(
+                  labelText: '제조원 정보',
+                  border: OutlineInputBorder(),
+                ),
+              ),
               const SizedBox(height: 24),
 
               // 149-5-14단계: 상품 판매 상태 관리

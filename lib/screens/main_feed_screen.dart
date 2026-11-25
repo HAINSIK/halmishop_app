@@ -51,18 +51,22 @@ class MainFeedScreen extends StatefulWidget {
 
 class _MainFeedScreenState extends State<MainFeedScreen> {
   bool _isAdmin = false;
+  String _memberName = '';
 
   // 150-9-10-23: 백그라운드 FCM 알림 클릭 구독 관리
   StreamSubscription<RemoteMessage>? _fcmOpenedSubscription;
 
   Future<void> _checkAdminRole() async {
     final prefs = await SharedPreferences.getInstance();
+
     final isAdmin = prefs.getString('member_role') == 'ADMIN';
+    final memberName = prefs.getString('member_name') ?? '';
 
     if (!mounted) return;
 
     setState(() {
       _isAdmin = isAdmin;
+      _memberName = memberName;
     });
   }
 
@@ -1285,6 +1289,32 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           children: [
+            // 153-1-3단계: 로그인 회원 환영 문구
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.person_outline,
+                    color: Color(0xFF244C3A),
+                    size: 22,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _memberName.trim().isNotEmpty
+                          ? '${_memberName.trim()}님, 환영합니다! 👋'
+                          : '젊은할미에 오신 것을 환영합니다! 👋',
+                      style: const TextStyle(
+                        color: Color(0xFF244C3A),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             // 143-10-1단계: 젊은할미 공지사항 안내
             // 143-10-5단계: 공지사항 표시 여부 적용
             // 146-3-12-5단계: 지정된 대표 공지가 있을 때만 홈 공지 표시
@@ -1878,12 +1908,28 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                 margin: const EdgeInsets.only(right: 12),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(14),
+                  // 153-5-2-14단계: 추천 반찬 상세화면 하단 탭 연결
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            BanchanDetailScreen(banchan: banchan),
+                        builder: (context) => BanchanDetailScreen(
+                          banchan: banchan,
+                          onNavigateToTab: (index) {
+                            // 상품 상세화면 닫기
+                            Navigator.pop(context);
+
+                            // 기존 메인 화면 탭 변경
+                            setState(() {
+                              _currentNavigationIndex = index;
+                            });
+
+                            // 주문내역 탭 새로고침
+                            if (index == _orderTabIndex) {
+                              _orderListKey.currentState?.refreshOrders();
+                            }
+                          },
+                        ),
                       ),
                     );
                   },
@@ -2200,12 +2246,28 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                     margin: const EdgeInsets.only(right: 12),
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
+                      // 153-5-2-16단계: 지금 준비된 반찬 상세화면 하단 탭 연결
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) =>
-                                BanchanDetailScreen(banchan: banchan),
+                            builder: (context) => BanchanDetailScreen(
+                              banchan: banchan,
+                              onNavigateToTab: (index) {
+                                // 상품 상세화면 닫기
+                                Navigator.pop(context);
+
+                                // 기존 메인 화면 탭 변경
+                                setState(() {
+                                  _currentNavigationIndex = index;
+                                });
+
+                                // 주문내역 탭 새로고침
+                                if (index == _orderTabIndex) {
+                                  _orderListKey.currentState?.refreshOrders();
+                                }
+                              },
+                            ),
                           ),
                         );
                       },
@@ -2375,10 +2437,27 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                   return;
                 }
 
+                // 153-5-2-6단계: 상품 상세화면에서 메인 탭으로 이동
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => BanchanDetailScreen(banchan: banchan),
+                    builder: (context) => BanchanDetailScreen(
+                      banchan: banchan,
+                      onNavigateToTab: (index) {
+                        // 상세화면을 닫고 기존 메인 화면으로 복귀
+                        Navigator.pop(context);
+
+                        // 기존 메인 화면의 탭 변경
+                        setState(() {
+                          _currentNavigationIndex = index;
+                        });
+
+                        // 주문내역 탭은 최신 주문정보 새로고침
+                        if (index == _orderTabIndex) {
+                          _orderListKey.currentState?.refreshOrders();
+                        }
+                      },
+                    ),
                   ),
                 );
               },

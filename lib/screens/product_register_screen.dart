@@ -25,6 +25,32 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
   final TextEditingController _priceController = TextEditingController();
   // 148-3-8단계: 상품 상세설명
   final TextEditingController _descriptionController = TextEditingController();
+  // 153-3-2단계: 상품별 식품 표시정보 입력 컨트롤러
+
+  // 원산지
+  final TextEditingController _originInfoController = TextEditingController();
+
+  // 소비기한
+  final TextEditingController _shelfLifeController = TextEditingController();
+
+  // 보관방법
+  final TextEditingController _storageMethodController =
+      TextEditingController();
+
+  // 알레르기 정보
+  final TextEditingController _allergenInfoController = TextEditingController();
+
+  // 식품유형
+  final TextEditingController _foodTypeController = TextEditingController();
+
+  // 내용량
+  final TextEditingController _netWeightController = TextEditingController();
+
+  // 원재료명 및 함량
+  final TextEditingController _ingredientsController = TextEditingController();
+
+  // 제조원 정보
+  final TextEditingController _manufacturerController = TextEditingController();
 
   // 148-3-7단계: 상품 카테고리
   String? _selectedCategory;
@@ -74,6 +100,17 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
     _nameController.dispose();
     _priceController.dispose();
     _descriptionController.dispose();
+
+    // 153-3-2단계: 식품 표시정보 컨트롤러 해제
+    _originInfoController.dispose();
+    _shelfLifeController.dispose();
+    _storageMethodController.dispose();
+    _allergenInfoController.dispose();
+    _foodTypeController.dispose();
+    _netWeightController.dispose();
+    _ingredientsController.dispose();
+    _manufacturerController.dispose();
+
     super.dispose();
   }
 
@@ -172,6 +209,119 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+              ),
+            ),
+
+            // 153-3-3단계: 상품별 식품 표시정보 입력 영역
+            const SizedBox(height: 28),
+
+            const Text(
+              '상품 표시정보',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1F4D3A),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            const Text(
+              '상품별 원산지, 소비기한, 보관방법 등을 입력해 주세요.',
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+
+            const SizedBox(height: 16),
+
+            TextField(
+              controller: _foodTypeController,
+              decoration: const InputDecoration(
+                labelText: '식품유형',
+                hintText: '예: 김치류',
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: _netWeightController,
+              decoration: const InputDecoration(
+                labelText: '내용량',
+                hintText: '예: 400g',
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: _ingredientsController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: '원재료명 및 함량',
+                hintText: '예: 배추, 고춧가루, 마늘, 젓갈 등',
+                alignLabelWithHint: true,
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: _originInfoController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: '원산지 정보',
+                hintText: '예: 배추(국산), 고춧가루(국산)',
+                alignLabelWithHint: true,
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: _shelfLifeController,
+              decoration: const InputDecoration(
+                labelText: '소비기한',
+                hintText: '예: 제품에 별도 표시',
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: _storageMethodController,
+              decoration: const InputDecoration(
+                labelText: '보관방법',
+                hintText: '예: 냉장보관',
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: _allergenInfoController,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: '알레르기 정보',
+                hintText: '예: 새우 함유',
+                alignLabelWithHint: true,
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: _manufacturerController,
+              decoration: const InputDecoration(
+                labelText: '제조원 정보',
+                hintText: '예: 젊은할미 반찬가게',
+                border: OutlineInputBorder(),
               ),
             ),
 
@@ -431,7 +581,7 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
                         // 상품 ID 생성 전에는 대표사진을 업로드하지 않음
                         String? imageUrl;
 
-                        // 148-3-17-16단계: 사진 주소와 상품정보 함께 등록
+                        // 153-3-4-3단계: 상품 기본정보 + 식품 표시정보 등록
                         final int? productId = await banchanService
                             .registerProduct(
                               name: name,
@@ -439,6 +589,17 @@ class _ProductRegisterScreenState extends State<ProductRegisterScreen> {
                               category: _selectedCategory!,
                               description: _descriptionController.text.trim(),
                               imageUrl: imageUrl,
+
+                              // 상품별 식품 표시정보 8개
+                              originInfo: _originInfoController.text.trim(),
+                              shelfLife: _shelfLifeController.text.trim(),
+                              storageMethod: _storageMethodController.text
+                                  .trim(),
+                              allergenInfo: _allergenInfoController.text.trim(),
+                              foodType: _foodTypeController.text.trim(),
+                              netWeight: _netWeightController.text.trim(),
+                              ingredients: _ingredientsController.text.trim(),
+                              manufacturer: _manufacturerController.text.trim(),
                             );
 
                         if (!mounted) return;

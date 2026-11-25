@@ -59,6 +59,12 @@ class NotificationService {
 
   // 알림 권한 요청 및 FCM 토큰 확인
   static Future<void> initialize() async {
+    // 153-8-11-22-2단계: 웹에서는 FCM 초기화 생략
+    if (kIsWeb) {
+      debugPrint('웹 환경: FCM 알림 초기화 생략');
+      return;
+    }
+
     try {
       // 150-9-7-2: 포그라운드 로컬 알림 초기화
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
@@ -141,13 +147,6 @@ class NotificationService {
         handleNotificationData(initialMessage.data);
       }
 
-      if (initialMessage != null) {
-        debugPrint('FCM 알림 클릭 감지 (앱 종료 상태)');
-        debugPrint('FCM 알림 데이터: ${initialMessage.data}');
-
-        handleNotificationData(initialMessage.data);
-      }
-
       // 150-9-7-3: 앱 실행 중 FCM 메시지 수신
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
@@ -216,6 +215,12 @@ class NotificationService {
 
   // 로그인한 회원의 FCM 토큰을 서버에 등록
   static Future<void> registerToken() async {
+    // 153-8-11-22-3단계: 웹에서는 FCM 토큰 등록 생략
+    if (kIsWeb) {
+      debugPrint('웹 환경: FCM 토큰 등록 생략');
+      return;
+    }
+
     try {
       final prefs = await SharedPreferences.getInstance();
 
@@ -261,6 +266,12 @@ class NotificationService {
 
   // 150-9-8-5: 로그아웃 시 서버의 FCM 토큰 연결 해제
   static Future<bool> unregisterToken() async {
+    // 153-8-11-22-4단계: 웹에서는 FCM 토큰 연결 해제 생략
+    if (kIsWeb) {
+      debugPrint('웹 환경: FCM 토큰 연결 해제 생략');
+      return true;
+    }
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final jwtToken = prefs.getString('jwt_token');
@@ -303,6 +314,12 @@ class NotificationService {
 
   // 150-9-9-3: 로그아웃 시 기기 FCM 토큰 삭제
   static Future<void> deleteDeviceToken() async {
+    // 153-8-11-22-5단계: 웹에서는 FCM 기기 토큰 삭제 생략
+    if (kIsWeb) {
+      debugPrint('웹 환경: FCM 기기 토큰 삭제 생략');
+      return;
+    }
+
     try {
       await _messaging.deleteToken();
 

@@ -12,7 +12,7 @@
             "program": "lib/main.dart",
             "deviceId": "R3CTA0KLJKP",
              "toolArgs": [
-                 "--dart-define=API_BASE_URL=http://192.168.0.97:8080"
+                 "--dart-define=API_BASE_URL=http://192.168.45.150:8080"
     ]
         },
         {

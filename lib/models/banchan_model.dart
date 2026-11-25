@@ -12,6 +12,34 @@ class Banchan {
   final bool isTodayPrepared;
   // 149-5-11단계: 상품 판매 가능 여부
   final bool isSaleEnabled;
+  // 153-4-3단계: 상품별 식품 표시정보
+
+  // 원산지 정보
+  final String originInfo;
+
+  // 소비기한
+  final String shelfLife;
+
+  // 보관방법
+  final String storageMethod;
+
+  // 알레르기 정보
+  final String allergenInfo;
+
+  // 식품유형
+  final String foodType;
+
+  // 내용량
+  final String netWeight;
+
+  // 원재료명 및 함량
+  final String ingredients;
+
+  // 제조원 정보
+  final String manufacturer;
+
+  // 153-8-4-2단계: ZIP 일괄등록용 사진폴더명
+  final String imageFolderName;
 
   Banchan({
     required this.id,
@@ -24,6 +52,17 @@ class Banchan {
     this.isTodayPrepared = false,
     this.isSaleEnabled = true,
     this.description = '', // 기존 Banchan 생성 코드와 호환
+    // 153-4-4단계: 식품 표시정보 기본값
+    this.originInfo = '',
+    this.shelfLife = '',
+    this.storageMethod = '',
+    this.allergenInfo = '',
+    this.foodType = '',
+    this.netWeight = '',
+    this.ingredients = '',
+    this.manufacturer = '',
+    // 153-8-4-2단계: 사진폴더명 기본값
+    this.imageFolderName = '',
   });
 
   // JSON 데이터를 플러터 객체로 변환
@@ -91,6 +130,18 @@ class Banchan {
           json['saleEnabled'] == true ||
           json['saleEnabled'] == 1 ||
           json['saleEnabled']?.toString().toLowerCase() == 'true',
+      // 153-4-5단계: 서버의 식품 표시정보 8개 연결
+      originInfo: json['originInfo']?.toString() ?? '',
+      shelfLife: json['shelfLife']?.toString() ?? '',
+      storageMethod: json['storageMethod']?.toString() ?? '',
+      allergenInfo: json['allergenInfo']?.toString() ?? '',
+      foodType: json['foodType']?.toString() ?? '',
+      netWeight: json['netWeight']?.toString() ?? '',
+      ingredients: json['ingredients']?.toString() ?? '',
+      manufacturer: json['manufacturer']?.toString() ?? '',
+
+      // 153-8-4-2단계: 서버 사진폴더명 연결
+      imageFolderName: json['imageFolderName']?.toString() ?? '',
     );
   }
 }

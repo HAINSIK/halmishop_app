@@ -213,6 +213,28 @@ class AuthService {
 
       debugPrint('JWT 인증 확인 HTTP 상태: ${response.statusCode}');
 
+      // 153-8-11-10단계: 자동 로그인 시 회원 정보 복원
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(
+          utf8.decode(response.bodyBytes),
+        );
+
+        final memberId = data['memberId']?.toString() ?? '';
+        final memberName = data['name']?.toString() ?? '';
+        final memberRole = data['role']?.toString() ?? 'CUSTOMER';
+
+        if (memberId.isEmpty) {
+          debugPrint('자동 로그인 회원번호 확인 실패');
+          return null;
+        }
+
+        await prefs.setString('member_id', memberId);
+        await prefs.setString('member_name', memberName);
+        await prefs.setString('member_role', memberRole);
+
+        debugPrint('자동 로그인 회원 정보 복원 완료');
+      }
+
       return response.statusCode;
     } catch (e) {
       debugPrint('JWT 인증 확인 통신 오류: $e');

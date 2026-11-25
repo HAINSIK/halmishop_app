@@ -61,21 +61,15 @@ class _AutoLoginScreenState extends State<AutoLoginScreen>
 
     debugPrint('자동 로그인 저장 정보 확인: $hasLogin');
 
+    // 153-8-11-12단계: 저장된 로그인 정보가 없으면 로그인 화면 이동
     if (!hasLogin) {
-      // 150-9-10-15: 푸시 알림 클릭으로 실행했는지 확인
-      final bool openOrderTab = NotificationService.pendingOpenOrderTab;
-
-      debugPrint('🔍 150-9-10-28 자동 로그인 후 주문내역 이동 여부: $openOrderTab');
-
-      // 이동 요청을 사용했으므로 초기화
-      NotificationService.pendingOpenOrderTab = false;
+      debugPrint('저장된 로그인 정보 없음: 로그인 화면으로 이동');
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => MainFeedScreen(openOrderTab: openOrderTab),
-        ),
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
       );
+
       return;
     }
 
