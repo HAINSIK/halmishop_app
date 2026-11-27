@@ -541,35 +541,47 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
 
               const SizedBox(height: 12),
 
-              if (widget.product.imageUrl.isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+              // 153-11-9-11-6-10-2단계: 관리자 대표사진 이미지 주소 검증
+              Builder(
+                builder: (context) {
+                  final imageUrl = getImageUrl(widget.product.imageUrl);
+                  final imageUri = Uri.tryParse(imageUrl);
 
-                  child: Image.network(
-                    // 149-7-39단계: 공통 이미지 URL 처리
-                    getImageUrl(widget.product.imageUrl),
+                  final bool hasValidImage =
+                      imageUrl.isNotEmpty &&
+                      imageUri != null &&
+                      imageUri.path.startsWith('/images/products/');
 
-                    width: double.infinity,
-                    height: 220,
-                    fit: BoxFit.contain,
+                  if (!hasValidImage) {
+                    return const SizedBox(
+                      height: 180,
+                      child: Center(
+                        child: Text('등록된 대표사진이 없거나 경로가 올바르지 않습니다.'),
+                      ),
+                    );
+                  }
 
-                    errorBuilder: (context, error, stackTrace) {
-                      debugPrint('❌ 대표사진 로딩 실패');
-                      debugPrint('이미지 URL: ${widget.product.imageUrl}');
-                      debugPrint('오류 내용: $error');
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      imageUrl,
+                      width: double.infinity,
+                      height: 220,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        debugPrint('❌ 대표사진 로딩 실패');
+                        debugPrint('이미지 URL: $imageUrl');
+                        debugPrint('오류 내용: $error');
 
-                      return const SizedBox(
-                        height: 180,
-                        child: Center(child: Text('대표사진을 불러올 수 없습니다.')),
-                      );
-                    },
-                  ),
-                )
-              else
-                const SizedBox(
-                  height: 180,
-                  child: Center(child: Text('등록된 대표사진이 없습니다.')),
-                ),
+                        return const SizedBox(
+                          height: 180,
+                          child: Center(child: Text('대표사진을 불러올 수 없습니다.')),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
 
               const SizedBox(height: 24),
 
@@ -675,27 +687,45 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
 
                     // 149-7-39단계: 상세사진 공통 이미지 URL 처리
                     final fullImageUrl = getImageUrl(imageUrl);
+                    // 153-11-9-11-6-10-3단계: 상세사진 이미지 주소 검증
+                    final imageUri = Uri.tryParse(fullImageUrl);
+
+                    final bool hasValidImage =
+                        fullImageUrl.isNotEmpty &&
+                        imageUri != null &&
+                        imageUri.path.startsWith('/images/products/');
 
                     return Stack(
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
-                            fullImageUrl,
-                            width: 110,
-                            height: 110,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              debugPrint('상세사진 표시 오류: $error');
-                              return const SizedBox(
-                                width: 110,
-                                height: 110,
-                                child: Center(
-                                  child: Icon(Icons.broken_image_outlined),
+                          child: hasValidImage
+                              ? Image.network(
+                                  fullImageUrl,
+                                  width: 110,
+                                  height: 110,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    debugPrint('상세사진 표시 오류: $error');
+
+                                    return const SizedBox(
+                                      width: 110,
+                                      height: 110,
+                                      child: Center(
+                                        child: Icon(
+                                          Icons.broken_image_outlined,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                )
+                              : const SizedBox(
+                                  width: 110,
+                                  height: 110,
+                                  child: Center(
+                                    child: Icon(Icons.broken_image_outlined),
+                                  ),
                                 ),
-                              );
-                            },
-                          ),
                         ),
 
                         // 등록된 상세사진 삭제 버튼
@@ -1080,57 +1110,63 @@ class _ProductEditScreenState extends State<ProductEditScreen> {
                     color: const Color(0xFF1F4D3A).withValues(alpha: 0.2),
                   ),
                 ),
-                child: SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    _isSaleEnabled ? '판매 중' : '판매 중지',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: _isSaleEnabled
-                          ? const Color(0xFF1F4D3A)
-                          : Colors.red,
+
+                // 153-11-9-10-4단계: ListTile Assertion 오류 방지
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      _isSaleEnabled ? '판매 중' : '판매 중지',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: _isSaleEnabled
+                            ? const Color(0xFF1F4D3A)
+                            : Colors.red,
+                      ),
                     ),
-                  ),
-                  subtitle: Text(
-                    _isSaleEnabled ? '현재 판매 가능한 상품입니다.' : '현재 판매가 중지된 상품입니다.',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  value: _isSaleEnabled,
-                  activeColor: const Color(0xFF1F4D3A),
-                  onChanged: (_isUpdatingSaleStatus || _isSaving)
-                      ? null
-                      : (value) async {
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            builder: (dialogContext) => AlertDialog(
-                              title: Text(value ? '상품 판매 재개' : '상품 판매 중지'),
-                              content: Text(
-                                value
-                                    ? '이 상품의 판매를 다시 시작하시겠습니까?'
-                                    : '이 상품의 판매를 중지하시겠습니까?',
+                    subtitle: Text(
+                      _isSaleEnabled ? '현재 판매 가능한 상품입니다.' : '현재 판매가 중지된 상품입니다.',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    value: _isSaleEnabled,
+                    activeColor: const Color(0xFF1F4D3A),
+                    onChanged: (_isUpdatingSaleStatus || _isSaving)
+                        ? null
+                        : (value) async {
+                            final confirmed = await showDialog<bool>(
+                              context: context,
+                              builder: (dialogContext) => AlertDialog(
+                                title: Text(value ? '상품 판매 재개' : '상품 판매 중지'),
+                                content: Text(
+                                  value
+                                      ? '이 상품의 판매를 다시 시작하시겠습니까?'
+                                      : '이 상품의 판매를 중지하시겠습니까?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext, false),
+                                    child: const Text('취소'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext, true),
+                                    child: const Text('확인'),
+                                  ),
+                                ],
                               ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(dialogContext, false),
-                                  child: const Text('취소'),
-                                ),
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(dialogContext, true),
-                                  child: const Text('확인'),
-                                ),
-                              ],
-                            ),
-                          );
+                            );
 
-                          if (confirmed != true || !mounted) {
-                            return;
-                          }
+                            if (confirmed != true || !mounted) {
+                              return;
+                            }
 
-                          await _changeSaleStatus(value);
-                        },
+                            await _changeSaleStatus(value);
+                          },
+                  ),
                 ),
               ),
 

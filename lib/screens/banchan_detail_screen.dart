@@ -57,9 +57,16 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
 
       final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
 
+      // 153-11-9-11-6-8-2단계: 상세사진 URL 공백 제거 및 유효 경로 검증
       return data
-          .map((item) => item['imageUrl']?.toString() ?? '')
-          .where((imageUrl) => imageUrl.isNotEmpty)
+          .map((item) => item['imageUrl']?.toString().trim() ?? '')
+          .where((imageUrl) {
+            if (imageUrl.isEmpty) return false;
+
+            final uri = Uri.tryParse(imageUrl);
+
+            return uri != null && uri.path.startsWith('/images/products/');
+          })
           .toList();
     } catch (e) {
       debugPrint('상세사진 조회 오류: $e');
@@ -253,9 +260,12 @@ class _BanchanDetailScreenState extends State<BanchanDetailScreen> {
                                     return const SizedBox.shrink();
                                   }
 
-                                  final imageUrl = uri.hasScheme
-                                      ? imagePath
-                                      : '${ApiConfig.baseUrl}$imagePath';
+                                  // 153-11-9-11-6-8-3단계: 상세사진 공통 이미지 URL 처리
+                                  final imageUrl = getImageUrl(imagePath);
+
+                                  if (imageUrl.isEmpty) {
+                                    return const SizedBox.shrink();
+                                  }
 
                                   return Padding(
                                     padding: const EdgeInsets.only(bottom: 12),

@@ -138,6 +138,15 @@ class _CartScreenState extends State<CartScreen> {
                     itemCount: cartItems.length,
                     itemBuilder: (context, index) {
                       final item = cartItems[index];
+                      // 153-11-9-11-6-9-2단계: 장바구니 이미지 주소 검증
+                      final imageUrl = getImageUrl(item.banchan.imageUrl);
+                      final imageUri = Uri.tryParse(imageUrl);
+
+                      final bool hasValidImage =
+                          imageUrl.isNotEmpty &&
+                          imageUri != null &&
+                          imageUri.path.startsWith('/images/products/');
+
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         shape: RoundedRectangleBorder(
@@ -150,13 +159,25 @@ class _CartScreenState extends State<CartScreen> {
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  getImageUrl(item.banchan.imageUrl),
-                                  width: 70,
-                                  height: 70,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Container(
+                                child: hasValidImage
+                                    ? Image.network(
+                                        imageUrl,
+                                        width: 70,
+                                        height: 70,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                Container(
+                                                  width: 70,
+                                                  height: 70,
+                                                  color: Colors.orange.shade50,
+                                                  child: const Icon(
+                                                    Icons.fastfood,
+                                                    color: Colors.orange,
+                                                  ),
+                                                ),
+                                      )
+                                    : Container(
                                         width: 70,
                                         height: 70,
                                         color: Colors.orange.shade50,
@@ -165,7 +186,6 @@ class _CartScreenState extends State<CartScreen> {
                                           color: Colors.orange,
                                         ),
                                       ),
-                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(

@@ -208,6 +208,14 @@ class _AdminBannerScreenState extends State<AdminBannerScreen> {
                 // 149-7-39단계: 관리자 배너 이미지 URL 공통 처리
                 final String imagePath = banner['imageUrl']?.toString() ?? '';
                 final String imageUrl = getImageUrl(imagePath);
+                // 153-11-9-11-6-11-2단계: 관리자 배너 이미지 주소 검증
+                final imageUri = Uri.tryParse(imageUrl);
+
+                final bool hasValidImage =
+                    imageUrl.isNotEmpty &&
+                    imageUri != null &&
+                    (imageUri.scheme == 'http' || imageUri.scheme == 'https') &&
+                    imageUri.host.isNotEmpty;
 
                 return Card(
                   color: Colors.white,
@@ -234,23 +242,33 @@ class _AdminBannerScreenState extends State<AdminBannerScreen> {
 
                     leading: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        imageUrl,
-                        width: 72,
-                        height: 56,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            width: 72,
-                            height: 56,
-                            color: const Color(0xFFF1EEE6),
-                            child: const Icon(
-                              Icons.broken_image_outlined,
-                              color: Colors.grey,
+                      child: hasValidImage
+                          ? Image.network(
+                              imageUrl,
+                              width: 72,
+                              height: 56,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  width: 72,
+                                  height: 56,
+                                  color: const Color(0xFFF1EEE6),
+                                  child: const Icon(
+                                    Icons.broken_image_outlined,
+                                    color: Colors.grey,
+                                  ),
+                                );
+                              },
+                            )
+                          : Container(
+                              width: 72,
+                              height: 56,
+                              color: const Color(0xFFF1EEE6),
+                              child: const Icon(
+                                Icons.broken_image_outlined,
+                                color: Colors.grey,
+                              ),
                             ),
-                          );
-                        },
-                      ),
                     ),
                     title: Text(
                       banner['title']?.toString() ?? '',

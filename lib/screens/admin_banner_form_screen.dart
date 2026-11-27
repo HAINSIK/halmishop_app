@@ -270,26 +270,32 @@ class _AdminBannerFormScreenState extends State<AdminBannerFormScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text(
-                  '배너 공개 여부',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF244C3A),
+
+              // 153-11-9-11-6-11-3-3단계: SwitchListTile Material 오류 수정
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    '배너 공개 여부',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF244C3A),
+                    ),
                   ),
+                  subtitle: Text(
+                    _isVisible ? '고객에게 배너가 표시됩니다.' : '관리자에게만 표시됩니다.',
+                  ),
+                  value: _isVisible,
+                  activeTrackColor: const Color(0xFF244C3A),
+                  onChanged: (value) {
+                    setState(() {
+                      _isVisible = value;
+                    });
+                  },
                 ),
-                subtitle: Text(
-                  _isVisible ? '고객에게 배너가 표시됩니다.' : '관리자에게만 표시됩니다.',
-                ),
-                value: _isVisible,
-                activeTrackColor: const Color(0xFF244C3A),
-                onChanged: (value) {
-                  setState(() {
-                    _isVisible = value;
-                  });
-                },
               ),
             ),
 

@@ -108,7 +108,8 @@ class Banchan {
       id: parsedId,
       name: json['name'] ?? '',
       price: parsedPrice,
-      imageUrl: json['imageUrl'] ?? 'https://placeholder.com',
+      // 153-11-9-11-6-4단계: 외부 대체 이미지 URL 제거
+      imageUrl: json['imageUrl']?.toString().trim() ?? '',
       category: json['category'] ?? '',
       description: json['description']?.toString() ?? '',
       isLiveProduct: parsedLive,

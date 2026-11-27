@@ -70,6 +70,26 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
     });
   }
 
+  // 153-11-9-11-6-7-2단계: 이미지 미등록 및 로딩 실패 공통 화면
+  Widget _buildImageFallback({
+    double? width,
+    double? height,
+    double iconSize = 40,
+  }) {
+    return Container(
+      width: width,
+      height: height,
+      color: const Color(0xFFF1EEE6),
+      child: Center(
+        child: Icon(
+          Icons.image_outlined,
+          color: const Color(0xFF244C3A),
+          size: iconSize,
+        ),
+      ),
+    );
+  }
+
   // 144-27-7단계: 서버에서 공개 공지사항 조회
   Future<void> _fetchNotices() async {
     try {
@@ -170,6 +190,9 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
         setState(() {
           if (bannerCountChanged) {
             _currentBannerIndex = 0;
+
+            // 153-11-9-11-6-8-6-4단계: 배너 위치 표시 상태 동기화
+            _bannerIndexNotifier.value = 0;
           }
 
           _banners = updatedBanners;
@@ -203,6 +226,10 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
   // 현재 선택된 하단 메뉴
   late int _currentNavigationIndex;
 
+  // 153-11-9-11-6-8-7-2단계: 상품 목록 화면 최초 방문 여부 관리
+  bool _hasVisitedCategoryProducts = false;
+  bool _hasVisitedSelectedBanchans = false;
+
   // 카테고리 종류 정의
   // 148-3-7-4단계: 기타 카테고리 추가
   final List<String> categories = ['전체', '국·탕', '찌개·조림', '김치', '밑반찬', '기타'];
@@ -232,6 +259,8 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
 
   // 145-34-8단계: 현재 표시 중인 배너 번호
   int _currentBannerIndex = 0;
+  // 153-11-9-11-6-8-6-1단계: 배너 위치 표시 전용 상태 관리
+  final ValueNotifier<int> _bannerIndexNotifier = ValueNotifier<int>(0);
 
   // 147-3-4-2단계: 전체 목록 화면의 추천 반찬 여부
   bool _showRecommendedSelection = false;
@@ -456,6 +485,9 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
     // 151-31-1단계: 메인 화면 종료 시 공지사항 알림 콜백 해제
     NotificationService.onNoticeTap = null;
 
+    // 153-11-9-11-6-8-6-5단계: 배너 상태 관리 자원 해제
+    _bannerIndexNotifier.dispose();
+
     super.dispose();
   }
 
@@ -518,6 +550,14 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 153-11-9-11-6-8-7-3단계: 상품 목록 최초 방문 여부 확인
+    if (_currentNavigationIndex == 4) {
+      _hasVisitedCategoryProducts = true;
+    }
+
+    if (_currentNavigationIndex == 5) {
+      _hasVisitedSelectedBanchans = true;
+    }
     // 💡 1. 하단 메뉴 선택에 따라 다른 화면을 보여줍니다.
     return PopScope(
       canPop: false,
@@ -957,10 +997,15 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                 debugPrint('📦 주문내역 → 전체 반찬 목록 이동');
               },
             ), // 3: 주문내역
-            // 146-2-6-3단계: 카테고리별 상품 목록
-            _buildCategoryProductScreen(),
-            // 147-2-4-4단계: 관리자 선택 반찬 전체 목록 (5번 화면)
-            _buildSelectedBanchanScreen(),
+            // 153-11-9-11-6-8-7-4단계: 상품 목록 최초 방문 시 생성
+            _hasVisitedCategoryProducts
+                ? _buildCategoryProductScreen()
+                : const SizedBox.shrink(),
+
+            // 153-11-9-11-6-8-7-4단계: 선택 반찬 목록 최초 방문 시 생성
+            _hasVisitedSelectedBanchans
+                ? _buildSelectedBanchanScreen()
+                : const SizedBox.shrink(),
           ],
         ),
 
@@ -1497,10 +1542,10 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                     // 145-35-7단계: 배너 개수 변경 시 컨트롤러 위치 초기화
                     key: ValueKey('banner_count_${_banners.length}'),
                     itemCount: _banners.length,
+                    // 153-11-9-11-6-8-6-2단계: 배너 변경 시 전체 화면 재빌드 방지
                     onPageChanged: (index) {
-                      setState(() {
-                        _currentBannerIndex = index;
-                      });
+                      _currentBannerIndex = index;
+                      _bannerIndexNotifier.value = index;
                     },
                     itemBuilder: (context, index) {
                       final banner = _banners[index];
@@ -1523,43 +1568,49 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(16),
 
-                          child: CachedNetworkImage(
-                            imageUrl: imageUrl,
-                            width: double.infinity,
-                            height: 180,
-                            fit: BoxFit.cover,
+                          // 153-11-9-11-6-7-2단계: 빈 이미지 주소 네트워크 요청 방지
+                          child: imageUrl.isEmpty
+                              ? _buildImageFallback(
+                                  width: double.infinity,
+                                  height: 180,
+                                )
+                              : CachedNetworkImage(
+                                  imageUrl: imageUrl,
+                                  width: double.infinity,
+                                  height: 180,
+                                  fit: BoxFit.cover,
 
-                            // 149-6-5단계: 이미지 다운로드 중 표시
-                            placeholder: (context, url) {
-                              return Container(
-                                width: double.infinity,
-                                height: 180,
-                                color: const Color(0xFFF1EEE6),
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Color(0xFF244C3A),
-                                  ),
-                                ),
-                              );
-                            },
+                                  // 149-6-5단계: 이미지 다운로드 중 표시
+                                  placeholder: (context, url) {
+                                    return Container(
+                                      width: double.infinity,
+                                      height: 180,
+                                      color: const Color(0xFFF1EEE6),
+                                      child: const Center(
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Color(0xFF244C3A),
+                                        ),
+                                      ),
+                                    );
+                                  },
 
-                            // 이미지 다운로드 실패 시 표시
-                            errorWidget: (context, url, error) {
-                              return Container(
-                                width: double.infinity,
-                                height: 180,
-                                color: const Color(0xFFF1EEE6),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.broken_image_outlined,
-                                    color: Colors.grey,
-                                    size: 40,
-                                  ),
+                                  // 이미지 다운로드 실패 시 표시
+                                  errorWidget: (context, url, error) {
+                                    return Container(
+                                      width: double.infinity,
+                                      height: 180,
+                                      color: const Color(0xFFF1EEE6),
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.broken_image_outlined,
+                                          color: Colors.grey,
+                                          size: 40,
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
-                              );
-                            },
-                          ),
                         ),
                       );
                     },
@@ -1567,26 +1618,31 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                 ),
               ),
 
-            // 145-34-10단계: 배너 페이지 위치 표시
+            // 153-11-9-11-6-8-6-3단계: 배너 위치 표시 영역만 개별 갱신
             if (_banners.length > 1)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(_banners.length, (index) {
-                  final bool isSelected = index == _currentBannerIndex;
+              ValueListenableBuilder<int>(
+                valueListenable: _bannerIndexNotifier,
+                builder: (context, currentIndex, child) {
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(_banners.length, (index) {
+                      final bool isSelected = index == currentIndex;
 
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    width: isSelected ? 18 : 7,
-                    height: 7,
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFFF47B08)
-                          : const Color(0xFFD5D5D5),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        width: isSelected ? 18 : 7,
+                        height: 7,
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFFF47B08)
+                              : const Color(0xFFD5D5D5),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      );
+                    }),
                   );
-                }),
+                },
               ),
 
             // 146-2-5-1단계: 장터홈 음식 사진 카테고리 바로가기
@@ -1939,42 +1995,45 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
 
-                        child: CachedNetworkImage(
-                          imageUrl: getImageUrl(banchan.imageUrl),
-                          width: 145,
-                          height: 135,
-                          fit: BoxFit.cover,
+                        // 153-11-9-11-6-7-3단계: 추천 반찬 빈 이미지 주소 처리
+                        child: getImageUrl(banchan.imageUrl).isEmpty
+                            ? _buildImageFallback(width: 145, height: 135)
+                            : CachedNetworkImage(
+                                imageUrl: getImageUrl(banchan.imageUrl),
+                                width: 145,
+                                height: 135,
+                                fit: BoxFit.cover,
 
-                          // 149-6-8단계: 추천 반찬 이미지 디스크 캐싱
-                          placeholder: (context, url) {
-                            return Container(
-                              width: 145,
-                              height: 135,
-                              color: const Color(0xFFF8F4E9),
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Color(0xFF244C3A),
-                                ),
+                                // 149-6-8단계: 추천 반찬 이미지 디스크 캐싱
+                                placeholder: (context, url) {
+                                  return Container(
+                                    width: 145,
+                                    height: 135,
+                                    color: const Color(0xFFF8F4E9),
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFF244C3A),
+                                      ),
+                                    ),
+                                  );
+                                },
+
+                                errorWidget: (context, url, error) {
+                                  debugPrint('❌ 추천 반찬 이미지 URL: $url');
+                                  debugPrint('❌ 추천 반찬 이미지 오류: $error');
+
+                                  return Container(
+                                    width: 145,
+                                    height: 135,
+                                    color: Colors.grey.shade200,
+                                    child: const Icon(
+                                      Icons.restaurant,
+                                      color: Color(0xFFF47B08),
+                                    ),
+                                  );
+                                },
                               ),
-                            );
-                          },
-
-                          errorWidget: (context, url, error) {
-                            debugPrint('❌ 추천 반찬 이미지 URL: $url');
-                            debugPrint('❌ 추천 반찬 이미지 오류: $error');
-
-                            return Container(
-                              width: 145,
-                              height: 135,
-                              color: Colors.grey.shade200,
-                              child: const Icon(
-                                Icons.restaurant,
-                                color: Color(0xFFF47B08),
-                              ),
-                            );
-                          },
-                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -2277,40 +2336,43 @@ class _MainFeedScreenState extends State<MainFeedScreen> {
                           ClipRRect(
                             borderRadius: BorderRadius.circular(12),
 
-                            child: CachedNetworkImage(
-                              // 149-7-10단계: 공통경로 이미지 URL 처리
-                              imageUrl: getImageUrl(banchan.imageUrl),
-                              width: 145,
-                              height: 135,
-                              fit: BoxFit.cover,
+                            // 153-11-9-11-6-7-4단계: 지금 준비된 반찬 빈 이미지 주소 처리
+                            child: getImageUrl(banchan.imageUrl).isEmpty
+                                ? _buildImageFallback(width: 145, height: 135)
+                                : CachedNetworkImage(
+                                    // 149-7-10단계: 공통경로 이미지 URL 처리
+                                    imageUrl: getImageUrl(banchan.imageUrl),
+                                    width: 145,
+                                    height: 135,
+                                    fit: BoxFit.cover,
 
-                              // 149-6-7단계: 지금 준비된 반찬 이미지 캐싱
-                              placeholder: (context, url) {
-                                return Container(
-                                  width: 145,
-                                  height: 135,
-                                  color: const Color(0xFFF8F4E9),
-                                  child: const Center(
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Color(0xFF244C3A),
-                                    ),
-                                  ),
-                                );
-                              },
+                                    // 149-6-7단계: 지금 준비된 반찬 이미지 캐싱
+                                    placeholder: (context, url) {
+                                      return Container(
+                                        width: 145,
+                                        height: 135,
+                                        color: const Color(0xFFF8F4E9),
+                                        child: const Center(
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Color(0xFF244C3A),
+                                          ),
+                                        ),
+                                      );
+                                    },
 
-                              errorWidget: (context, url, error) {
-                                return Container(
-                                  width: 145,
-                                  height: 135,
-                                  color: Colors.grey.shade200,
-                                  child: const Icon(
-                                    Icons.restaurant,
-                                    color: Color(0xFFF47B08),
+                                    errorWidget: (context, url, error) {
+                                      return Container(
+                                        width: 145,
+                                        height: 135,
+                                        color: Colors.grey.shade200,
+                                        child: const Icon(
+                                          Icons.restaurant,
+                                          color: Color(0xFFF47B08),
+                                        ),
+                                      );
+                                    },
                                   ),
-                                );
-                              },
-                            ),
                           ),
                           const SizedBox(height: 8),
                           Text(
